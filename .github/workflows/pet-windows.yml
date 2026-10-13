@@ -17,14 +17,17 @@ jobs:
     name: Pixel Office Pet 윈도우 exe · 켜 보기
     runs-on: windows-latest
     timeout-minutes: 30
-    env:
-      TP_TMP: ${{ runner.temp }}
     steps:
       # 윈도우 git 은 기본으로 줄 끝을 CRLF 로 바꿈 → 저장소 그대로(LF) 받기
       - name: 줄 끝 그대로 받기
         run: git config --global core.autocrlf false
 
       - uses: actions/checkout@v4
+
+      # job 의 env: 칸에서는 runner 문맥을 못 씀(2026-10-13 손 실행 때 422 "Unrecognized named-value: 'runner'") → 단계에서 GITHUB_ENV 로 넣는다
+      - name: 임시 폴더
+        shell: pwsh
+        run: '"TP_TMP=$env:RUNNER_TEMP" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8'
 
       - uses: actions/setup-node@v4
         with:
