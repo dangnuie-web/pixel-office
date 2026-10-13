@@ -1,0 +1,10 @@
+:root { --k: #29262F; --w: #F4F3EF; --W: #56585F; --u: 3px; --font: "Apple SD Gothic Neo", "AppleSDGothicNeo", "Malgun Gothic", system-ui, sans-serif; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+#shot { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+#lens { position: absolute; left: 0; top: 0; pointer-events: none; background: var(--w); border: var(--u) solid var(--k); box-shadow: 0 var(--u) 0 var(--W); }
+#lens[hidden] { display: none; }
+#zoom { display: block; width: 121px; height: 121px; image-rendering: pixelated; }
+#lab { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-top: var(--u) solid var(--k); font: bold 13px/18px var(--font); color: var(--k); }
+#chip { width: 14px; height: 14px; border: 2px solid var(--k); flex: none; }
+#tip { position: absolute; left: 50%; top: 24px; transform: translateX(-50%); padding: 4px 10px; background: var(--w); color: var(--k); border: var(--u) solid var(--k);
+  font: 13px/19px var(--font); pointer-events: none; }

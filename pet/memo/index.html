@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:">
+<title>메모</title>
+<link rel="stylesheet" href="memo.css">
+</head>
+<body>
+<div id="wrap">
+  <div class="tm">
+    <div class="band"></div>
+    <div class="tm-in">
+      <div class="seg" role="radiogroup" aria-label="종류">
+        <button type="button" role="radio" data-k="idea">아이디어</button><button type="button" role="radio" data-k="lecture">강의 소재</button><button type="button" role="radio" data-k="appt">약속</button>
+      </div>
+      <input id="in" class="fld" type="text" maxlength="500" placeholder="떠오른 걸 한 줄로" autocomplete="off" spellcheck="false" aria-label="메모">
+      <div id="ap" hidden>
+        <div class="two">
+          <label class="fld" id="fd"><span class="lab">날짜</span><input id="ad" type="text" maxlength="30" placeholder="금, 내일, 10/12" autocomplete="off" spellcheck="false" aria-label="날짜"></label>
+          <label class="fld" id="ft"><span class="lab">시간</span><input id="at" type="text" maxlength="20" placeholder="없어도 돼요" autocomplete="off" spellcheck="false" aria-label="시간"></label>
+        </div>
+        <div class="kindrow"><span>종류</span><span class="seg mini" role="radiogroup" aria-label="약속 종류"><button type="button" role="radio" data-ak="미팅"><i class="sq meet"></i>미팅</button><button type="button" role="radio" data-ak="마감"><i class="sq due"></i>마감</button><button type="button" role="radio" data-ak="발행"><i class="sq pub"></i>발행</button></span></div>
+        <label class="fld" id="fx"><span class="lab">내용</span><input id="ax" type="text" maxlength="80" placeholder="무슨 약속인지" autocomplete="off" spellcheck="false" aria-label="내용"></label>
+        <div class="read" id="rd" aria-live="polite"><b id="r1"></b><small id="r2"></small></div>
+      </div>
+      <div class="foot"><span class="to">→ <b id="to">아이디어보관함</b></span><span class="keys"><kbd>Enter</kbd>적기<kbd>Esc</kbd>닫기</span></div>
+    </div>
+  </div>
+  <canvas id="tail"></canvas>
+</div>
+<script src="../shared/pixel.js"></script>
+<script src="../lib/po/cal_core.js"></script>
+<script src="../lib/appt.js"></script>
+<script src="memo.js"></script>
+</body>
+</html>

@@ -157,7 +157,15 @@
     const br = C.buildBriefing(G.st, opts);
     G.bubble = { list: br.bubbles, i: 0, save: G.readFail ? null : C.compareValues(G.st), kind: br.kind,
       dn: kind === 'replay' ? DN_LINE.replay : DN_LINE.enter, onDn: true };
+    if (kind === 'replay' && root.POPet && root.POPet.available()) { G.bubble.list = br.bubbles.concat([PET_LINE]); G.bubble.petAt = G.bubble.list.length - 1; }
     G.lastBriefing = br;
+    setPage();
+  }
+  const PET_LINE = '바탕화면에도 제가 나가 있을까요? Enter를 누르면 펫을 띄워요.';
+  async function petFromBubble() {
+    closeBubble(true);
+    const r = await root.POPet.launch();
+    G.bubble = { list: [r.text], i: 0, save: null, kind: 'pet', dn: null, onDn: false };
     setPage();
   }
   function closeBubble(finished) {
@@ -191,6 +199,7 @@
       return;
     }
     if (G.bubble) {
+      if (k === 'Enter' && !e.repeat && G.bubble.petAt != null && !G.bubble.onDn && G.bubble.i === G.bubble.petAt) { petFromBubble(); return; }
       if (isAct) { if (e.repeat) return; nextBubble(); return; }
       if (isArrow) { closeBubble(false); if (G.tori.mode === 'enter') toriToFollow(); pressDir(k); return; }
       if (k === 'Escape') { closeBubble(false); return; }
@@ -997,7 +1006,7 @@
     el.querySelector('.dl-name').textContent = NM(spk.name);
     el.querySelector('.dl-sr').textContent = B.text;
     drawText();
-    el.querySelector('.dl-more').innerHTML = B.onDn ? '<i class="go" aria-label="다음"></i>' : (B.i + 1) + ' / ' + B.list.length + (last ? ' · Space 닫기' : ' <i class="go" aria-label="다음"></i>');
+    el.querySelector('.dl-more').innerHTML = B.onDn ? '<i class="go" aria-label="다음"></i>' : (B.i + 1) + ' / ' + B.list.length + (last ? (B.petAt === B.i ? ' · Enter 펫 띄우기 · Space 닫기' : ' · Space 닫기') : ' <i class="go" aria-label="다음"></i>');
     if (el.hidden) { el.hidden = false; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
   }
   function openTalk(key) {

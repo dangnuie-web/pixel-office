@@ -1,0 +1,50 @@
+:root { --k: #29262F; --w: #F4F3EF; --W: #56585F; --v: #E4E3DE; --T: #6B6661; --x: #F2C641; --u: 3px;
+  --notch: polygon(0 var(--u), var(--u) var(--u), var(--u) 0, calc(100% - var(--u)) 0, calc(100% - var(--u)) var(--u), 100% var(--u),
+    100% calc(100% - var(--u)), calc(100% - var(--u)) calc(100% - var(--u)), calc(100% - var(--u)) 100%,
+    var(--u) 100%, var(--u) calc(100% - var(--u)), 0 calc(100% - var(--u)));
+  --font: "Apple SD Gothic Neo", "AppleSDGothicNeo", "Malgun Gothic", system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; font-family: var(--font); user-select: none; -webkit-user-select: none; }
+.pw { position: absolute; left: 0; top: 0; right: 0; bottom: var(--u); display: flex; flex-direction: column; background: var(--w); color: var(--k);
+  border: var(--u) solid var(--k); clip-path: var(--notch); }
+.band { flex: none; height: calc(2 * var(--u)); background: var(--x); }
+body.noband .band { display: none; }
+.pw-bar { flex: none; display: flex; align-items: center; gap: 10px; padding: 6px 8px 6px 10px; border-bottom: var(--u) solid var(--k); -webkit-app-region: drag; }
+.thumb { position: relative; flex: none; width: 48px; height: 48px; border: 2px solid var(--k); background: var(--v); }
+.thumb img { display: block; width: 44px; height: 44px; object-fit: cover; }
+.thumb .more { position: absolute; right: -4px; bottom: -4px; min-width: 20px; height: 18px; padding: 0 2px; text-align: center; font: bold 11px/14px var(--font); border: 2px solid var(--k); background: var(--x); }
+.thumb .more[hidden] { display: none; }
+.ttl { flex: 1; min-width: 0; }
+.ttl b { display: block; font-size: 17px; line-height: 22px; }
+.ttl small { display: block; font-size: 12px; line-height: 17px; color: var(--T); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pw-x { flex: none; align-self: flex-start; width: 33px; height: 33px; border: 0; padding: 0; background: transparent; cursor: pointer; -webkit-app-region: no-drag; }
+.pw-x canvas { display: block; margin: 3px; }
+.pw-x .on { display: none; }
+.pw-x:hover .off, .pw-x:focus-visible .off { display: none; }
+.pw-x:hover .on, .pw-x:focus-visible .on { display: block; }
+.pw-x.text { font: bold 18px var(--font); color: var(--k); }
+.plist { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 6px 8px 4px 8px; font-size: 13px; outline: none; }
+.plist::-webkit-scrollbar { width: 8px; }
+.plist::-webkit-scrollbar-track { background: var(--v); }
+.plist::-webkit-scrollbar-thumb { background: var(--W); }
+.pi { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px; cursor: pointer; }
+.pi .n { flex: none; width: 20px; height: 18px; text-align: center; font: bold 11px/14px var(--font); border: 2px solid var(--k); background: var(--x); }
+.pi .n.blank { visibility: hidden; }
+.pi .nm { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pi .meta { font-size: 11px; color: var(--T); }
+.pi.on { background: var(--k); color: var(--w); }
+.pi.on .meta { color: var(--v); }
+.pi.on .n { border-color: var(--w); }
+.pi.sep { border-top: 2px dotted var(--v); margin-top: 3px; padding-top: 3px; height: 29px; }
+.pname { flex: none; padding: 6px 10px 8px; border-top: var(--u) solid var(--k); }
+.lab2 { font-size: 11px; font-weight: bold; color: var(--T); }
+.fld { display: block; width: 100%; height: 28px; margin-top: 4px; background: #FFFFFF; border: 2px solid var(--k); border-radius: 0; font: 13px var(--font); color: var(--k); padding: 0 8px; outline: none; user-select: text; -webkit-user-select: text; }
+.fld:focus-visible { outline: 2px solid var(--x); outline-offset: -5px; }
+.out { margin-top: 4px; font-size: 11px; line-height: 15px; color: var(--T); overflow-wrap: anywhere; min-height: 30px; }
+.out b { color: var(--k); font-weight: normal; }
+.out .bad { color: #B0232F; }
+.pfoot { flex: none; display: flex; align-items: center; gap: 8px; padding: 6px 8px 7px 10px; background: var(--v); border-top: var(--u) solid var(--k); font-size: 11px; line-height: 14px; color: var(--W); }
+.pfoot span { flex: 1; }
+.go { font: bold 13px var(--font); color: var(--w); background: var(--k); border: 0; height: 28px; padding: 0 14px; clip-path: var(--notch); cursor: pointer; }
+.go:focus-visible { outline: 2px solid var(--x); outline-offset: -5px; }
+.go:disabled { opacity: .5; cursor: default; }

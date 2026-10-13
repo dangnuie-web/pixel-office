@@ -57,7 +57,7 @@
           '</div>' +
         '</div>' +
         '<div class="st-foot"><button class="pr-btn" id="st-reset">기본값으로</button></div>' +
-      '</div>' + creditsHtml();
+      '</div>' + petHtml() + creditsHtml();
     const $ = (id) => box.querySelector('#' + id);
     const inO = $('st-office'), inB = $('st-boss');
     function paint() {
@@ -83,6 +83,28 @@
     box.querySelectorAll('.st-name').forEach((nm) => nm.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'INPUT') { e.preventDefault(); nm.querySelector('input').focus(); } }));
     $('st-reset').addEventListener('click', () => { N.reset(); render(box); box.querySelector('#st-saved').textContent = '기본값으로 바꿨어요'; });
     paint();
+    bindPet(box);
+  }
+  function petHtml() {
+    const P = root.POPet;
+    if (!P || !P.available()) return '';
+    const pub = N.isPublic();
+    return '<div class="st-panel st-pet" id="st-pet">' +
+      '<p class="st-pv-t">바탕화면 펫</p>' +
+      '<p class="st-desc">' + (pub ? '세트 앱 Pixel Office Pet을 켜요. 바탕화면을 돌아다니며 할 일과 약속을 알려 주는 비서 펫이에요. 설치돼 있지 않으면 받는 곳을 열어요.' : '') + '</p>' +
+      '<div class="st-foot"><button class="pr-btn" id="st-pet-go">바탕화면에 펫 띄우기</button></div>' +
+      '<p class="st-hint" id="st-pet-msg" aria-live="polite" hidden></p>' +
+    '</div>';
+  }
+  function bindPet(box) {
+    const btn = box.querySelector('#st-pet-go'), msg = box.querySelector('#st-pet-msg');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const r = await root.POPet.launch();
+      msg.textContent = r.text; msg.hidden = false;
+      btn.disabled = false;
+    });
   }
 
   N.onChange(() => N.applyDoc(root.document));

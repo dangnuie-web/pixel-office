@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:">
+<title>색 뽑기</title>
+<link rel="stylesheet" href="color.css">
+</head>
+<body>
+<canvas id="shot"></canvas>
+<div id="lens" hidden>
+  <canvas id="zoom"></canvas>
+  <div id="lab"><span id="chip"></span><b id="hex"></b></div>
+</div>
+<div id="tip">색을 누르세요 · Esc 그만두기</div>
+<script src="color.js"></script>
+</body>
+</html>

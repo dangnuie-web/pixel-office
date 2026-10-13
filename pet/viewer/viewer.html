@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:">
+<title>브리핑</title>
+<link rel="stylesheet" href="viewer.css">
+</head>
+<body>
+<div class="tp" role="dialog" aria-labelledby="title">
+  <div class="board"><div class="ink"></div><div class="face" id="face"></div></div>
+  <div class="sheet s1"></div>
+  <div class="sheet s2"></div>
+  <div class="paper">
+    <div class="band"></div>
+    <div class="head">
+      <div id="portrait"></div>
+      <div class="ttl"><div id="title"></div><div id="sub"></div></div>
+    </div>
+    <div class="body" id="body" tabindex="0"></div>
+  </div>
+  <div class="label" id="foot"></div>
+  <div class="clip" id="clip"></div>
+  <button id="close" class="x" title="닫기 (Esc)" aria-label="닫기"></button>
+</div>
+<script src="../shared/pixel.js"></script>
+<script src="viewer.js"></script>
+</body>
+</html>

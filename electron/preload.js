@@ -29,5 +29,8 @@ contextBridge.exposeInMainWorld('PODesktop', {
   officePick: () => ipcRenderer.invoke('po:office-pick'),
   officePickParent: (o) => ipcRenderer.invoke('po:office-pick-parent', o && o.peek ? { peek: true } : undefined),
   makeOffice: (input) => ipcRenderer.invoke('po:make-office', input),
+  petInfo: () => ipcRenderer.invoke('po:pet-info'),
+  petLaunch: () => ipcRenderer.invoke('po:pet-launch'),
+  petGet: () => ipcRenderer.invoke('po:pet-get'),
   onTool: (cb) => { const f = (e, ev) => cb(ev); ipcRenderer.on('po:tool-event', f); return () => ipcRenderer.removeListener('po:tool-event', f); },
 });

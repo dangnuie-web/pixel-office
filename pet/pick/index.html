@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src data:">
+<title>어느 주제?</title>
+<link rel="stylesheet" href="pick.css">
+</head>
+<body>
+<div class="pw">
+  <div class="band"></div>
+  <div class="pw-bar">
+    <div class="thumb" id="thumb"><span class="more" id="more" hidden></span></div>
+    <div class="ttl"><b>어느 주제?</b><small id="sub"></small></div>
+    <button type="button" id="close" class="pw-x" title="그만두기 (Esc)" aria-label="그만두기"></button>
+  </div>
+  <div class="plist" id="list" role="listbox" tabindex="0" aria-label="주제"></div>
+  <div class="pname"><label class="lab2" for="words">새 주제 이름 (＋ 새 주제)</label>
+    <input id="words" class="fld" type="text" maxlength="40" placeholder="예: 카페 무드" autocomplete="off" spellcheck="false">
+    <div class="out" id="out"></div></div>
+  <div class="pfoot"><span>↑↓ · 1~9 고르기<br>Esc 그만두기</span><button type="button" class="go" id="go">옮기기</button></div>
+</div>
+<script src="../shared/pixel.js"></script>
+<script src="pick.js"></script>
+</body>
+</html>

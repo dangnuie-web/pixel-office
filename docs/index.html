@@ -45,6 +45,7 @@
 <p>Pixel Office는 무료로 나누는 개인 앱이에요.</p>
 <p>애플에는 돈을 내고 받는 "개발자 인증"이 있어요. 가게로 치면 "정식 입점 도장" 같은 거예요. 도장이 없으면 컴퓨터가 "처음 보는 앱인데 열어도 될까요?" 하고 한 번 물어봐요.</p>
 <p>Pixel Office는 이 유료 도장을 받지 않았어요. 그래서 처음 한 번만 경고가 떠요. 아래 순서대로 한 번 열어 주면, 다음부터는 그냥 열려요.</p>
+<p><b>Pixel Office Pet도 같아요.</b> 세트 앱 Pixel Office Pet(바탕화면 비서 펫)도 같은 이유로 처음 한 번 경고가 떠요. 아래에서 "Pixel Office"를 "Pixel Office Pet"으로 바꿔 읽고 똑같이 열어 주세요.</p>
 
 <h2 id="get">먼저, 내 컴퓨터에 맞는 파일을 받아요</h2>
 <table>
@@ -115,14 +116,16 @@
   <p>파일에는 저마다 <b>확인값(SHA-256)</b>이 있어요. 사람의 지문처럼, 파일이 한 글자만 바뀌어도 값이 완전히 달라져요. 내가 받은 파일의 값이 아래 값과 같으면, 중간에 아무도 바꾸지 않은 진짜 파일이에요.</p>
   <table>
     <thead><tr><th>파일</th><th>확인값(SHA-256)</th></tr></thead>
-    <tbody><tr><td><code>Pixel-Office-mac-arm64.dmg</code></td><td class="sha" id="sha-mac">4464affa997db03b76843aec725a53e3953308e41aef436e27f036b1bdf5a70b</td></tr></tbody>
+    <tbody><tr><td><code>Pixel-Office-mac-arm64.dmg</code></td><td class="sha" id="sha-mac">b950384980b9fe530af192de7d8560059f02e7a578de460055b66ab45148a28b</td></tr>
+      <tr><td><code>Pixel-Office-Pet-mac-arm64.dmg</code></td><td class="sha" id="sha-pet">c4e61074fa200c535a913e3aa385b4bf096e210550433bae397be70dc767e312</td></tr></tbody>
   </table>
   <p>받은 파일이 <b>다운로드</b> 폴더에 있다고 가정할게요. 터미널은 글자로 컴퓨터에 일을 시키는 창이에요.</p>
   <ol>
     <li><b>⌘ Command + Space</b>를 눌러 Spotlight 검색을 열어요.</li>
     <li><code>터미널</code>을 입력하고 <b>Return</b>을 눌러요.</li>
     <li>아래 한 줄을 그대로 붙여 넣고 <b>Return</b>을 눌러요.
-<pre>shasum -a 256 ~/Downloads/Pixel-Office-mac-arm64.dmg</pre></li>
+<pre>shasum -a 256 ~/Downloads/Pixel-Office-mac-arm64.dmg</pre>
+    Pixel Office Pet은 파일 이름만 <code>Pixel-Office-Pet-mac-arm64.dmg</code>로 바꿔요.</li>
     <li>맨 앞에 나온 긴 글자를 위 표의 값과 비교해요.</li>
   </ol>
   <ul>

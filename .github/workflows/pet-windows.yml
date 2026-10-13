@@ -1,0 +1,60 @@
+# Pixel Office Pet 윈도우 시험 + 설치 파일 (2026-10-13 비트 초안 — 아직 안 올림. 올리기는 공개 저장소 푸시 승인 일)
+# 이 파일은 공개 저장소(pixel-office)의 .github/workflows/pet-windows.yml 자리로 내보내진다 (펫 코드 쪽 tools/export_public.js)
+# Pixel Office 윈도우판과 같은 방식: 윈도우 컴퓨터가 없어서 깃허브 Actions 윈도우 서버에서 exe 를 만들고 진짜로 켜 본다.
+# 결과 exe 는 Actions "Artifacts" 로만 남기고(7일), 릴리스·게시는 하지 않는다. 마지막 눈 확인은 PC방
+# 손으로만 돈다(workflow_dispatch). 공개 저장소라 윈도우 시간은 무료. 비밀값·토큰을 쓰지 않는다(기본 읽기 권한만)
+# 저장소 맨 위 Electron(package.json devDependencies) 하나를 Pixel Office 와 같이 쓴다. electron-builder 는 서버에서만 받는다(저장소에 안 넣음)
+name: pet-windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pet-windows:
+    name: Pixel Office Pet 윈도우 exe · 켜 보기
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      TP_TMP: ${{ runner.temp }}
+    steps:
+      # 윈도우 git 은 기본으로 줄 끝을 CRLF 로 바꿈 → 저장소 그대로(LF) 받기
+      - name: 줄 끝 그대로 받기
+        run: git config --global core.autocrlf false
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Electron (저장소 package.json 고정 버전) + electron-builder (서버에서만, 고정 버전)
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund electron-builder@26.15.3
+
+      - name: Pixel Office Pet 윈도우 설치 파일 (NSIS x64, 서명 없음)
+        run: >-
+          node -e "const p=require('path'),B=require('./.github/pet/builder.js');
+          require('electron-builder').build({projectDir:p.resolve('pet'),win:['nsis:x64'],publish:'never',
+          config:B.config({appDir:p.resolve('pet'),out:p.resolve('out/pet'),icons:p.resolve('.github/pet'),
+          electronVersion:require('electron/package.json').version,notices:p.resolve('node_modules/electron/dist')})})
+          .then(()=>console.log('exe 만듦')).catch((e)=>{console.error(e);process.exit(1);})"
+
+      # 투명 창·클릭 통과·커서 감시(진짜 커서 옮기기)·색 뽑기(진짜 화면 찍기)를 설치 파일 앱으로
+      - name: 설치 파일 앱 켜 보기
+        if: always()
+        run: node .github/pet/smoke.js "out/pet/dist/win-unpacked/PixelOfficePet.exe" --real-capture --shot "out/smoke/pet-windows.png"
+
+      - name: 결과 남기기 (7일)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pet-windows
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            out/pet/dist/Pixel-Office-Pet-windows-setup.exe
+            out/smoke/pet-windows.png

@@ -149,6 +149,11 @@ ipcMain.handle('po:accept-image', (e, abs) => acceptImage(String(abs || '')));
 app.on('before-quit', () => { runner.stopAll(); jsonRunner.stopAll(); });
 
 ipcMain.handle('po:office-get', () => ({ path: OFFICE, from: OFFICE_FROM, public: PUBLIC }));
+const PET = require('./pet');
+const petOpts = () => ({ platform: process.platform, home: HOME, env: process.env, pub: PUBLIC });
+ipcMain.handle('po:pet-info', () => PET.info(petOpts()));
+ipcMain.handle('po:pet-launch', () => PET.launch(petOpts(), (p) => shell.openPath(p)));
+ipcMain.handle('po:pet-get', () => (PUBLIC ? shell.openExternal(PET.RELEASES).then(() => true) : false));
 function switchOffice(dir) {
   const c = OF.checkOfficeDir(dir, officeOpts());
   if (!c.ok) return c;
