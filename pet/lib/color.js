@@ -20,9 +20,9 @@ function toImage(x, y, bw, bh, iw, ih) {
   const iy = Math.min(ih - 1, Math.max(0, Math.floor(y * ih / bh)));
   return { x: ix, y: iy };
 }
-function permStep(status) {
+function permStep(status, asked) {
   if (status === 'granted') return 'capture';
-  if (status === 'not-determined') return 'ask';
+  if (!asked) return 'ask';
   return 'guide';
 }
 const say = {

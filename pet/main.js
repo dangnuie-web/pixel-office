@@ -592,10 +592,11 @@ async function startColor() {
   st.color = { busy: true, shots: [] };
   try {
     if (!COLOR_SHOT) {
-      let step = CO.permStep(screenStatus());
+      let step = CO.permStep(screenStatus(), !!st.screenAsked);
       if (step === 'ask') {
+        st.screenAsked = true;
         try { await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }); } catch (e) {}
-        step = CO.permStep(screenStatus());
+        step = CO.permStep(screenStatus(), true);
         if (step !== 'capture') { st.color = null; say(CO.say.asked(), { now: true, ms: 10000 }); return; }
       }
       if (step === 'guide') { st.color = null; say(CO.say.guide(), { now: true, ms: 10000 }); return; }

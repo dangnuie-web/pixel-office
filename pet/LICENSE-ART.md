@@ -19,7 +19,7 @@ Copyright (c) 2026 Dangnee
 경로는 앱 폴더 기준입니다(맥은 `Pixel Office Pet.app/Contents/Resources/app/`).
 - 펫 캐릭터 그림: `assets/png/` 의 PNG 10장(서기·걷기·손 흔들기·들려 있기)과 그 목록 `assets/png/sprites.json`
 - 펫 픽셀 그림: `assets/` 의 그림 JSON(걷기·손 흔들기·시계·클립보드·종이 바탕)
-- 펫 초상 그림: `assets/` 의 `*_초상_*.png` — ChatGPT 이미지 생성으로 만든 뒤 다듬은 그림
+- 펫 초상 그림: `assets/portrait_tori.png` — ChatGPT 이미지 생성으로 만든 뒤 다듬은 그림
 - 같이 쓰는 Pixel Office 그림: `lib/po/assets/`
 - 앱 아이콘: 맥 `Pixel Office Pet.app/Contents/Resources/` 의 `icon.icns`(설치 파일)·`electron.icns`, 윈도우 `PixelOfficePet.exe` 안 아이콘
 - 대사: 펫 말주머니의 한마디·인사·알림 글 (`main.js`·`lib/` 의 말주머니 대사)

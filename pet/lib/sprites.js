@@ -93,6 +93,8 @@ function pngData(man, dir) {
 }
 function portraitPng() {
   const d = path.join(ROOT, 'assets');
+  const pub = path.join(d, 'portrait_tori.png');
+  if (fs.existsSync(pub)) return 'data:image/png;base64,' + fs.readFileSync(pub).toString('base64');
   let best = null;
   try {
     fs.readdirSync(d).forEach((n) => {
