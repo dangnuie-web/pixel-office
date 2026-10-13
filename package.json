@@ -1,0 +1,15 @@
+{
+  "name": "pixel-office",
+  "productName": "Pixel Office",
+  "version": "0.1.0",
+  "private": true,
+  "description": "픽셀 사무실 데스크톱 앱 (Pixel Office)",
+  "license": "SEE LICENSE IN LICENSE",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "44.5.1"
+  }
+}

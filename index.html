@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'self' data: blob:; font-src 'self'">
+<title>pixel-office · 당니오피스</title>
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/shelf.css">
+<link rel="stylesheet" href="css/pixel.css">
+<link rel="stylesheet" href="css/calendar.css">
+<link rel="stylesheet" href="css/settings.css">
+<link rel="stylesheet" href="css/firstrun.css">
+</head>
+<body>
+<div id="app">
+  <nav id="tabs" role="tablist" aria-label="탭">
+    <div class="brand" data-n="text">당니오피스</div>
+    <button role="tab" data-tab="office" aria-selected="true">픽셀 사무실</button>
+    <button role="tab" data-tab="projects" aria-selected="false">프로젝트 관리</button>
+    <button role="tab" data-tab="ideas" aria-selected="false">아이디어 보드</button>
+    <button role="tab" data-tab="calendar" aria-selected="false">일정</button>
+    <button role="tab" data-tab="shelf" aria-selected="false">자료 보관</button>
+    <div class="tab-sep" role="presentation"></div>
+    <button role="tab" data-tab="cards" aria-selected="false">직원 카드</button>
+    <button role="tab" data-tab="settings" aria-selected="false">설정</button>
+    <div class="tab-foot" id="mode-badge"></div>
+  </nav>
+  <main id="main">
+    <section id="screen-connect" class="screen center" hidden>
+      <h1>pixel-office</h1>
+      <p data-n="text">당니오피스 폴더를 한 번 골라 주세요. 허용된 파일만 읽고, 아무것도 고치지 않습니다.</p>
+      <button id="btn-connect" class="big" data-n="text">당니오피스 폴더 연결</button>
+      <p id="connect-msg" class="warn"></p>
+    </section>
+    <section id="screen-firstrun" class="screen" hidden><div id="firstrun"></div></section>
+    <section id="screen-start" class="screen center" hidden>
+      <div id="cover">
+        <canvas id="cover-cv" width="384" height="256" data-n="aria-label" aria-label="당니오피스 건물이 있는 거리"></canvas>
+        <button id="btn-enter" class="game">입장하기</button>
+        <p id="start-msg" class="warn"></p>
+        <button id="btn-reconnect" class="link">다른 폴더 연결</button>
+      </div>
+    </section>
+    <section id="screen-office" class="screen" hidden>
+      <div id="stage" tabindex="0" aria-label="픽셀 사무실. 방향키로 걷고 Space로 말을 걸어요.">
+        <canvas id="cv" width="384" height="256"></canvas>
+        <div id="overlay"></div>
+        <div id="dlg" hidden><div class="dl-box">
+          <div class="dl-face"></div>
+          <div class="dl-text"><div class="dl-name"></div><div class="dl-body"><span class="dl-vis" aria-hidden="true"></span><span class="dl-sr" aria-live="polite"></span></div><div class="dl-more"></div></div>
+        </div></div>
+        <div id="win" hidden></div>
+        <div id="notice" hidden></div>
+      </div>
+    </section>
+    <section id="screen-soon" class="screen center" hidden><p>준비 중</p></section>
+    <section id="screen-projects" class="screen scroll pj pr" hidden><div id="projects"></div></section>
+    <section id="screen-calendar" class="screen scroll pj" hidden><div id="calendar"></div></section>
+    <section id="screen-ideas" class="screen scroll pj" hidden><div id="ideas"></div></section>
+    <section id="screen-cards" class="screen scroll pj" hidden><div id="cards"></div></section>
+    <section id="screen-shelf" class="screen sf-screen" hidden><div id="shelf"></div></section>
+    <section id="screen-settings" class="screen scroll pj st" hidden><div id="settings"></div></section>
+    <section id="screen-pixel" class="screen" hidden><div id="pixel"></div></section>
+    <section id="screen-f13" class="screen scroll" hidden><div id="f13"></div></section>
+  </main>
+</div>
+<script src="js/edition.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/settings_core.js"></script>
+<script src="js/assets_data.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/core.js"></script>
+<script src="js/layout.js"></script>
+<script src="js/layoutcheck.js"></script>
+<script src="js/lines.js"></script>
+<script src="js/fsa.js"></script>
+<script src="js/demo_data.js"></script>
+<script src="js/loader.js"></script>
+<script src="js/f13.js"></script>
+<script src="js/look.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script src="js/table_md.js"></script>
+<script src="js/plan_md.js"></script>
+<script src="js/plan_data.js"></script>
+<script src="js/projects.js"></script>
+<script src="js/plan.js"></script>
+<script src="js/cal_core.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/shelf_core.js"></script>
+<script src="js/skills_core.js"></script>
+<script src="js/combo_core.js"></script>
+<script src="js/combo_ui.js"></script>
+<script src="js/pixel_core.js"></script>
+<script src="js/shelf.js"></script>
+<script src="js/tools_core.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/pixel_ui.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/credits.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/firstrun.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

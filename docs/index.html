@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixel Office — 처음 열 때 경고 창 여는 법</title>
+<meta name="description" content="Pixel Office를 처음 열 때 뜨는 경고 창을 여는 방법과 받기 안내예요.">
+<style>
+  :root { --ink: #29262F; --sub: #5f5a66; --line: #e4e3de; --bg: #f7f6f2; --card: #fff; --pri: #F2C641; --pri-d: #d9a91f; --link: #2f6fb3; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.7 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "맑은 고딕", sans-serif; word-break: keep-all; }
+  main { max-width: 720px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1 { font-size: 28px; line-height: 1.35; margin: 0 0 16px; }
+  h2 { font-size: 21px; margin: 48px 0 12px; padding-top: 20px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 28px 0 6px; }
+  p { margin: 8px 0; }
+  a { color: var(--link); }
+  .lead { color: var(--sub); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 15px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--sub); font-weight: 600; }
+  .btn { display: inline-block; background: var(--pri); color: var(--ink); font-weight: 700; text-decoration: none; padding: 10px 18px; border-radius: 10px; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
+  .btn:hover, .btn:focus-visible { background: #ffd95a; }
+  .soon { display: inline-block; color: var(--sub); background: #eeede8; border-radius: 8px; padding: 2px 10px; font-weight: 600; }
+  ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 2px 0 14px 44px; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px; }
+  ol.steps b.t { display: block; }
+  details { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; margin: 12px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  details[open] summary { margin-bottom: 8px; }
+  code, pre { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 14px; }
+  pre { background: #29262F; color: #f4f3ef; padding: 12px 14px; border-radius: 8px; overflow-x: auto; white-space: pre; }
+  .sha { word-break: break-all; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 13px; }
+  .warn { border-left: 4px solid var(--pri-d); }
+  footer { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--sub); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>처음 열 때 경고 창이 떠요.<br>걱정하지 않아도 돼요!</h1>
+<p>Pixel Office는 무료로 나누는 개인 앱이에요.</p>
+<p>애플에는 돈을 내고 받는 "개발자 인증"이 있어요. 가게로 치면 "정식 입점 도장" 같은 거예요. 도장이 없으면 컴퓨터가 "처음 보는 앱인데 열어도 될까요?" 하고 한 번 물어봐요.</p>
+<p>Pixel Office는 이 유료 도장을 받지 않았어요. 그래서 처음 한 번만 경고가 떠요. 아래 순서대로 한 번 열어 주면, 다음부터는 그냥 열려요.</p>
+
+<h2 id="get">먼저, 내 컴퓨터에 맞는 파일을 받아요</h2>
+<table>
+  <thead><tr><th>내 컴퓨터</th><th>받을 파일</th><th>이런 컴퓨터만 돼요</th></tr></thead>
+  <tbody>
+    <tr><td>맥</td><td><a class="btn" href="https://github.com/dangnuie-web/pixel-office/releases/latest/download/Pixel-Office-mac-arm64.dmg">Pixel-Office-mac-arm64.dmg 받기</a></td><td>애플 칩(M1, M2, M3 …) 맥</td></tr>
+    <tr><td>윈도우</td><td><span class="soon">곧 나와요</span></td><td>지금은 맥판만 있어요</td></tr>
+  </tbody>
+</table>
+<ul>
+  <li><b>꼭 이 페이지의 받기 버튼으로만 받아요.</b> 다른 곳에 올라온 파일은 누가 바꿔 놨을 수도 있어요.</li>
+  <li><b>인텔 맥에서는 안 열려요.</b> 미안해요!</li>
+</ul>
+<details>
+  <summary>내 맥이 애플 칩인지 모르겠어요</summary>
+  <ol>
+    <li>화면 왼쪽 위 사과 모양()을 눌러요.</li>
+    <li><b>이 Mac에 관하여</b>를 눌러요.</li>
+    <li><b>칩</b> 줄에 "Apple M…"이 보이면 애플 칩이에요. 대신 <b>프로세서</b> 줄에 "Intel"이 보이면 인텔 맥이에요.</li>
+  </ol>
+</details>
+
+<h2 id="mac">맥에서 열기</h2>
+<p class="lead">최신 macOS(2024년 macOS Sequoia부터) 기준이에요.</p>
+<ol class="steps">
+  <li><b class="t">받은 파일을 열어요.</b>다운로드 폴더에서 <code>Pixel-Office-mac-arm64.dmg</code>를 더블클릭해요.</li>
+  <li><b class="t">앱을 응용 프로그램 폴더로 옮겨요.</b>열린 창에서 Pixel Office 아이콘을 <b>응용 프로그램</b> 폴더 쪽으로 끌어다 놓아요.</li>
+  <li><b class="t">앱을 한 번 열어 봐요.</b>응용 프로그램 폴더에서 Pixel Office를 더블클릭해요. "Apple이 악성 코드가 없는지 확인할 수 없다"는 뜻의 경고 창이 떠요. 이건 예상한 창이에요. <b>완료</b>를 눌러 닫아요. (<b>휴지통으로 이동</b>은 누르지 마세요!)</li>
+  <li><b class="t">시스템 설정을 열어요.</b>화면 왼쪽 위 사과 모양()을 누르고 <b>시스템 설정</b>을 눌러요.</li>
+  <li><b class="t">개인정보 보호 및 보안으로 가요.</b>왼쪽 목록에서 <b>개인정보 보호 및 보안</b>을 눌러요. 안 보이면 목록을 아래로 내려요.</li>
+  <li><b class="t">"그래도 열기"를 눌러요.</b>오른쪽 화면을 아래로 내려 <b>보안</b> 칸을 찾아요. Pixel Office가 막혔다는 문장 옆의 <b>그래도 열기</b>를 눌러요.</li>
+  <li><b class="t">한 번 더 확인해요.</b>확인 창이 한 번 더 뜨면 거기서도 <b>그래도 열기</b>를 눌러요.</li>
+  <li><b class="t">맥 암호를 넣어요.</b>맥을 켤 때 쓰는 암호를 넣고 <b>확인</b>을 눌러요. Pixel Office가 열려요!</li>
+</ol>
+<p>이제 끝이에요. 다음부터는 그냥 더블클릭하면 열려요.</p>
+
+<h3>"그래도 열기" 버튼이 안 보여요</h3>
+<p>이 버튼은 앱을 열어 본 뒤 <b>약 1시간 동안만</b> 보여요. (<a href="https://support.apple.com/ko-kr/guide/mac-help/mh40616/mac">Apple 공식 도움말</a>)<br>3번으로 돌아가 앱을 한 번 더 열어 본 뒤, 바로 6번으로 가요.</p>
+
+<h3>예전에 쓰던 "오른쪽 클릭 → 열기"는요?</h3>
+<p>macOS Sequoia부터는 이 방법으로 열리지 않아요. 위 순서대로 해 주세요.</p>
+
+<h3>"손상되었기 때문에 열 수 없습니다"가 떠요</h3>
+<div class="card warn">
+  <p>이 창은 원래 뜨면 안 되는 창이에요. 앱 쪽 문제일 가능성이 커요.<br><b>휴지통으로 옮기지 말고</b> <a href="https://github.com/dangnuie-web/pixel-office/issues">깃허브 이슈</a>로 알려 주세요.</p>
+</div>
+
+<h2 id="windows">윈도우에서 열기</h2>
+<p><span class="soon">곧 나와요</span> 지금은 맥판만 있어요. 윈도우판이 나오면 여는 법을 이 페이지에 함께 올려요.</p>
+
+<h2 id="trust">믿어도 될까요?</h2>
+<h3>코드가 다 공개돼 있어요.</h3>
+<p>Pixel Office를 만든 코드는 깃허브(개발자들이 코드를 올려 두는 곳)에 공개돼 있어요. 누구나 볼 수 있어요.<br><a href="https://github.com/dangnuie-web/pixel-office">깃허브 저장소 보기</a></p>
+<h3>인터넷으로 아무것도 보내지 않아요.</h3>
+<p>서버도, 로그인도, 데이터베이스도 없어요. 내가 고른 사무실 폴더 안의 파일만 읽고 써요.</p>
+<h3>자동 업데이트가 없어요.</h3>
+<p>앱이 몰래 스스로 바뀌지 않아요. 새 버전은 이 페이지에서 직접 받아요.</p>
+<h3>무료예요.</h3>
+<ul>
+  <li>코드: MIT 라이선스 (자유롭게 쓰고 고칠 수 있어요)</li>
+  <li>그림·캐릭터: CC BY-NC-ND 4.0 (출처를 밝히면 그대로 나눌 수 있어요. 돈 받고 쓰거나 고쳐 쓰는 건 안 돼요)</li>
+  <li>저작권자: Dangnee</li>
+</ul>
+
+<details id="sha">
+  <summary>(선택) 받은 파일이 진짜인지 확인하기</summary>
+  <p>이 단계는 안 해도 앱은 잘 열려요. 더 안심하고 싶을 때만 해요.</p>
+  <p>파일에는 저마다 <b>확인값(SHA-256)</b>이 있어요. 사람의 지문처럼, 파일이 한 글자만 바뀌어도 값이 완전히 달라져요. 내가 받은 파일의 값이 아래 값과 같으면, 중간에 아무도 바꾸지 않은 진짜 파일이에요.</p>
+  <table>
+    <thead><tr><th>파일</th><th>확인값(SHA-256)</th></tr></thead>
+    <tbody><tr><td><code>Pixel-Office-mac-arm64.dmg</code></td><td class="sha" id="sha-mac">4464affa997db03b76843aec725a53e3953308e41aef436e27f036b1bdf5a70b</td></tr></tbody>
+  </table>
+  <p>받은 파일이 <b>다운로드</b> 폴더에 있다고 가정할게요. 터미널은 글자로 컴퓨터에 일을 시키는 창이에요.</p>
+  <ol>
+    <li><b>⌘ Command + Space</b>를 눌러 Spotlight 검색을 열어요.</li>
+    <li><code>터미널</code>을 입력하고 <b>Return</b>을 눌러요.</li>
+    <li>아래 한 줄을 그대로 붙여 넣고 <b>Return</b>을 눌러요.
+<pre>shasum -a 256 ~/Downloads/Pixel-Office-mac-arm64.dmg</pre></li>
+    <li>맨 앞에 나온 긴 글자를 위 표의 값과 비교해요.</li>
+  </ol>
+  <ul>
+    <li>영어 대문자·소문자 차이는 신경 쓰지 않아도 돼요. 글자와 숫자 순서만 같으면 같은 값이에요.</li>
+    <li>값이 다르면 그 파일은 열지 말고 지운 뒤, 이 페이지에서 다시 받아요. 그래도 다르면 <a href="https://github.com/dangnuie-web/pixel-office/issues">깃허브 이슈</a>로 알려 주세요.</li>
+  </ul>
+</details>
+
+<h2 id="made">어떻게 만들었나요?</h2>
+<p>디자이너 한 명이 AI 직원들과 함께 "바이브코딩"(코드를 직접 짜는 대신 AI에게 말로 설명하며 만드는 방식)으로 만들었어요.</p>
+
+<footer>
+  <p>궁금한 점이나 고장은 <a href="https://github.com/dangnuie-web/pixel-office/issues">깃허브 이슈</a>로 알려 주세요. 문의는 이슈로만 받아요.</p>
+  <p>Pixel Office · 저작권자 Dangnee · 코드 MIT, 그림·캐릭터 CC BY-NC-ND 4.0</p>
+</footer>
+
+</main>
+</body>
+</html>
