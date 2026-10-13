@@ -37,6 +37,10 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm install --no-save --no-audit --no-fund electron-builder@26.15.3
+          node node_modules/electron/install.js
+          node -e "const fs=require('fs'),d='node_modules/electron/dist';for(const f of ['electron.exe','LICENSE','LICENSES.chromium.html'])if(!fs.existsSync(d+'/'+f)){console.error('없음: '+f);process.exit(1)}"
+        # Electron 44 는 npm install 때 실행 파일·고지 파일을 받지 않음(처음 쓸 때 받음). 설치 파일에 넣는 Electron 고지(LICENSE·LICENSES.chromium.html)를 여기서 받는다
+        # (2026-10-13 실행 38375590513: "file source doesn't exist ...electron\dist\LICENSE" 경고만 나고 고지 없는 exe 가 만들어졌음)
 
       - name: Pixel Office Pet 윈도우 설치 파일 (NSIS x64, 서명 없음)
         run: >-
@@ -45,6 +49,10 @@ jobs:
           config:B.config({appDir:p.resolve('pet'),out:p.resolve('out/pet'),icons:p.resolve('.github/pet'),
           electronVersion:require('electron/package.json').version,notices:p.resolve('node_modules/electron/dist')})})
           .then(()=>console.log('exe 만듦')).catch((e)=>{console.error(e);process.exit(1);})"
+
+      - name: 설치 파일 안 Electron 고지 확인
+        run: |
+          node -e "const fs=require('fs'),r='out/pet/dist/win-unpacked/resources/';for(const f of ['LICENSE','LICENSES.chromium.html','app/LICENSE','app/LICENSE-ART.md'])if(!fs.existsSync(r+f)){console.error('설치 파일에 없음: '+f);process.exit(1)};console.log('고지 파일 있음')"
 
       # 투명 창·클릭 통과·커서 감시(진짜 커서 옮기기)·색 뽑기(진짜 화면 찍기)를 설치 파일 앱으로
       - name: 설치 파일 앱 켜 보기
