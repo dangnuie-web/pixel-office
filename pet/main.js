@@ -463,11 +463,14 @@ function saveAppt(a) {
   return w;
 }
 
+const CUR = require('./lib/cursor');
 function watchCursor() {
   setInterval(() => {
-    if (!pet || st.hidden || !st.ignore || st.drag) return;
-    const p = screen.getCursorScreenPoint();
-    if (Math.abs(p.x - st.cx) <= TW * 0.3 && p.y >= st.by - TH * 0.85 && p.y <= st.by - TH * 0.1) setIgnore(false);
+    if (!pet) return;
+    const r = CUR.step({ ignore: st.ignore, drag: !!st.drag, hidden: st.hidden, hover: !!st.hover, said: st.said === undefined ? null : st.said }, screen.getCursorScreenPoint(), { cx: st.cx, by: st.by, tw: TW, th: TH }, pet.getBounds());
+    if (r.clearSaid) st.said = null;
+    if (r.ignore !== null) setIgnore(r.ignore);
+    if (r.resetHit) send('pet:hitReset');
   }, 120);
 }
 function dropHover(h) {
@@ -650,7 +653,7 @@ function lockDown(win) {
 }
 
 const fromPet = (e) => pet && e.sender === pet.webContents;
-ipcMain.on('pet:hit', (e, hit) => { if (fromPet(e) && !st.drag) setIgnore(!hit); });
+ipcMain.on('pet:hit', (e, hit) => { if (fromPet(e) && !st.drag) { st.said = !!hit; setIgnore(!hit); } });
 ipcMain.on('pet:dragStart', (e) => { if (fromPet(e)) dragStart(); });
 ipcMain.on('pet:dragEnd', (e) => { if (fromPet(e)) dragEnd(); });
 ipcMain.on('pet:menu', (e) => { if (fromPet(e)) showMenu(); });

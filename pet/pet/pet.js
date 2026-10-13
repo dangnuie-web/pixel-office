@@ -184,7 +184,8 @@
   let hit = false, down = false;
   function setHit(h) { if (h !== hit) { hit = h; window.TP.send('pet:hit', h); } }
   window.addEventListener('mousemove', (e) => { if (!down) setHit(onTori(e.clientX, e.clientY) || onBubble(e.clientX, e.clientY)); });
-  document.addEventListener('mouseleave', () => { if (!down) setHit(false); });
+  document.addEventListener('mouseleave', () => { if (!down) { hit = false; window.TP.send('pet:hit', false); } });
+  window.TP.on('pet:hitReset', () => { hit = null; });
   window.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     if (onBubble(e.clientX, e.clientY)) { hideBubble(true); return; }

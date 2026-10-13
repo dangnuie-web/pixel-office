@@ -83,7 +83,13 @@ function moveCursor(x, y) {
       moveCursor(Math.max(0, s.cx - 600), Math.max(0, s.by - 500));
       await sleep(1200);
       const off = await cmd({ do: 'state' });
-      check('커서가 떠나면 다시 클릭 통과', off && off.ignore === true, off && off.ignore);
+      check('커서가 창 밖으로 떠나면 다시 클릭 통과', off && off.ignore === true, off && off.ignore);
+      moveCursor(s.cx, s.by - 40); await sleep(900);
+      const on2 = await cmd({ do: 'state' });
+      const B = on2 && on2.bounds;
+      if (B) { moveCursor(B.x + 6, B.y + B.height - 8); await sleep(300); moveCursor(B.x + 7, B.y + B.height - 7); await sleep(900); }
+      const corner = await cmd({ do: 'state' });
+      check('창 안 투명한 곳으로 옮기면 다시 클릭 통과 (뒤 화면을 누를 수 있음)', on2 && on2.ignore === false && corner && corner.ignore === true, { on2: on2 && on2.ignore, corner: corner && corner.ignore, talking: corner && corner.talking });
     } else console.log('  (커서 옮기기 건너뜀: ' + process.platform + ' — 윈도우 서버에서만)');
     const c = await cmd({ do: 'color', wait: 2500 }, 80);
     check('색 뽑기 덮개 창이 화면마다 열림', c && c.open >= 1 && c.shots && c.shots.length === c.open, c);
