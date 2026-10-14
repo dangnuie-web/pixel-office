@@ -23,7 +23,6 @@
   th { color: var(--sub); font-weight: 600; }
   .btn { display: inline-block; background: var(--pri); color: var(--ink); font-weight: 700; text-decoration: none; padding: 10px 18px; border-radius: 10px; border: 2px solid var(--ink); box-shadow: 0 3px 0 var(--ink); }
   .btn:hover, .btn:focus-visible { background: #ffd95a; }
-  .soon { display: inline-block; color: var(--sub); background: #eeede8; border-radius: 8px; padding: 2px 10px; font-weight: 600; }
   ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; }
   ol.steps > li { counter-increment: s; position: relative; padding: 2px 0 14px 44px; }
   ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 15px; }
@@ -43,7 +42,7 @@
 
 <h1>처음 열 때 경고 창이 떠요.<br>걱정하지 않아도 돼요!</h1>
 <p>Pixel Office는 무료로 나누는 개인 앱이에요.</p>
-<p>애플에는 돈을 내고 받는 "개발자 인증"이 있어요. 가게로 치면 "정식 입점 도장" 같은 거예요. 도장이 없으면 컴퓨터가 "처음 보는 앱인데 열어도 될까요?" 하고 한 번 물어봐요.</p>
+<p>애플과 마이크로소프트에는 돈을 내고 받는 "개발자 인증"(서명)이 있어요. 가게로 치면 "정식 입점 도장" 같은 거예요. 도장이 없으면 컴퓨터가 "처음 보는 앱인데 열어도 될까요?" 하고 한 번 물어봐요.</p>
 <p>Pixel Office는 이 유료 도장을 받지 않았어요. 그래서 처음 한 번만 경고가 떠요. 아래 순서대로 한 번 열어 주면, 다음부터는 그냥 열려요.</p>
 <p><b>Pixel Office Pet도 같아요.</b> 세트 앱 Pixel Office Pet(바탕화면 비서 펫)도 같은 이유로 처음 한 번 경고가 떠요. 아래에서 "Pixel Office"를 "Pixel Office Pet"으로 바꿔 읽고 똑같이 열어 주세요. 펫의 색 뽑기 권한은 <a href="#pet">아래 Pixel Office Pet 절</a>에 따로 적었어요.</p>
 
@@ -52,7 +51,7 @@
   <thead><tr><th>내 컴퓨터</th><th>받을 파일</th><th>이런 컴퓨터만 돼요</th></tr></thead>
   <tbody>
     <tr><td>맥</td><td><a class="btn" href="https://github.com/dangnuie-web/pixel-office/releases/latest/download/Pixel-Office-mac-arm64.dmg">Pixel-Office-mac-arm64.dmg 받기</a></td><td>애플 칩(M1, M2, M3 …) 맥</td></tr>
-    <tr><td>윈도우</td><td><span class="soon">곧 나와요</span></td><td>지금은 맥판만 있어요</td></tr>
+    <tr><td>윈도우</td><td><a class="btn" href="https://github.com/dangnuie-web/pixel-office/releases/latest/download/Pixel-Office-windows-setup.exe">Pixel-Office-windows-setup.exe 받기</a></td><td>64비트 윈도우 10·11</td></tr>
   </tbody>
 </table>
 <ul>
@@ -65,6 +64,14 @@
     <li>화면 왼쪽 위 사과 모양()을 눌러요.</li>
     <li><b>이 Mac에 관하여</b>를 눌러요.</li>
     <li><b>칩</b> 줄에 "Apple M…"이 보이면 애플 칩이에요. 대신 <b>프로세서</b> 줄에 "Intel"이 보이면 인텔 맥이에요.</li>
+  </ol>
+</details>
+<details>
+  <summary>내 윈도우가 64비트인지 모르겠어요</summary>
+  <ol>
+    <li><b>시작</b> 버튼을 누르고 <b>설정</b>(톱니)을 눌러요.</li>
+    <li><b>시스템</b> &gt; <b>정보</b>를 눌러요.</li>
+    <li><b>시스템 종류</b> 줄에 "64비트 운영 체제"가 보이면 돼요.</li>
   </ol>
 </details>
 
@@ -111,7 +118,31 @@
 </ol>
 
 <h2 id="windows">윈도우에서 열기</h2>
-<p><span class="soon">곧 나와요</span> 지금은 맥판만 있어요. 윈도우판이 나오면 여는 법을 이 페이지에 함께 올려요.</p>
+<p class="lead">윈도우 11 기준이에요. 윈도우 10은 메뉴 이름이 조금 다를 수 있어요.</p>
+<p>윈도우에서는 경고가 두 번 뜰 수 있어요. <b>받을 때는 브라우저가</b>, <b>처음 실행할 때는 윈도우가</b> 띄워요. 둘 다 처음 한 번만 넘기면 돼요.</p>
+<ol class="steps">
+  <li><b class="t">파일을 받아요.</b>위 표에서 <b>Pixel-Office-windows-setup.exe 받기</b>를 눌러요.</li>
+  <li><b class="t">브라우저 경고가 뜨면 "유지"를 눌러요.</b>"흔히 다운로드되지 않는 파일" 같은 글이 붙을 수 있어요. 받은 파일 옆 메뉴(엣지는 <b>…</b>)를 누르고 <b>유지</b>를 눌러요. 한 번 더 물으면 <b>그래도 유지</b>를 눌러요. 글과 버튼 이름은 브라우저마다 조금 달라요. 경고가 안 뜨면 이 단계는 건너뛰어요.</li>
+  <li><b class="t">받은 파일을 실행해요.</b>다운로드 폴더에서 <code>Pixel-Office-windows-setup.exe</code>를 더블클릭해요.</li>
+  <li><b class="t">"추가 정보"를 눌러요.</b>파란 <b>"Windows의 PC 보호"</b> 창이 떠요. 이건 예상한 창이에요. 버튼이 <b>실행 안 함</b>뿐이라 당황할 수 있어요. 글 아래 작은 글씨 <b>추가 정보</b>를 눌러요.</li>
+  <li><b class="t">"실행"을 눌러요.</b>아래에 <b>실행</b> 버튼이 새로 생겨요. 눌러요.</li>
+  <li><b class="t">설치가 끝나길 기다려요.</b>설치 창이 잠깐 떴다 사라지면 끝이에요. 관리자 암호는 묻지 않아요.</li>
+  <li><b class="t">시작 메뉴에서 켜요.</b>시작 메뉴에서 <b>Pixel Office</b>를 눌러요. 다음부터는 여기서 바로 켜면 돼요.</li>
+</ol>
+<p>Pixel Office Pet도 같은 순서예요. 받는 파일만 <code>Pixel-Office-Pet-windows-setup.exe</code>이고, 시작 메뉴 이름은 <b>Pixel Office Pet</b>이에요.</p>
+
+<h3>"실행" 버튼이 아예 없어요</h3>
+<div class="card warn">
+  <p>윈도우 11의 <b>스마트 앱 컨트롤</b>이 켜진 PC는 서명 없는 앱을 막아요. (<a href="https://support.microsoft.com/kb/5008908">Microsoft 공식 도움말</a>)<br>이런 PC에서는 지금 판을 열 수 없어요. 미안해요!</p>
+</div>
+
+<h3>윈도우에서 쓸 때 다른 점</h3>
+<ul>
+  <li>단축키는 맥의 <b>Cmd</b> 자리에 <b>Ctrl</b>을 눌러요. 예: 새로고침 <b>Ctrl+R</b>.</li>
+  <li>사무실 폴더 기본 자리는 <b>문서</b> 폴더 안 <code>픽셀 오피스</code>예요.</li>
+  <li>앱이 기억하는 것(고른 사무실 폴더 자리 등)은 <code>%APPDATA%\Pixel Office Public\</code>에 있어요. 파일 탐색기 주소창에 그대로 붙여 넣고 <b>Enter</b>를 누르면 열려요.</li>
+  <li>앱 지우기: <b>설정</b> &gt; <b>앱</b> &gt; <b>설치된 앱</b>(윈도우 10은 <b>앱 및 기능</b>)에서 Pixel Office를 <b>제거</b>해요. 문서 폴더의 <code>픽셀 오피스</code> 폴더(내가 적은 것)는 그대로 남아요.</li>
+</ul>
 
 <h2 id="trust">믿어도 될까요?</h2>
 <h3>코드가 다 공개돼 있어요.</h3>
@@ -136,6 +167,7 @@
     <tbody><tr><td><code>Pixel-Office-mac-arm64.dmg</code></td><td class="sha" id="sha-mac">4f266baf09fceb1cee95c4f77f3bbbf482317c267e63201f5988109a7faaa469</td></tr>
       <tr><td><code>Pixel-Office-Pet-mac-arm64.dmg</code></td><td class="sha" id="sha-pet">5c160e12a316f8478d2b28a20c7d6b450291a8be402529844924360365ad765d</td></tr></tbody>
   </table>
+  <p>윈도우 설치 파일(<code>Pixel-Office-windows-setup.exe</code>, <code>Pixel-Office-Pet-windows-setup.exe</code>) 확인값은 <a href="https://github.com/dangnuie-web/pixel-office/releases/latest">릴리스 페이지</a> 본문에 있어요.</p>
   <p>받은 파일이 <b>다운로드</b> 폴더에 있다고 가정할게요. 터미널은 글자로 컴퓨터에 일을 시키는 창이에요.</p>
   <ol>
     <li><b>⌘ Command + Space</b>를 눌러 Spotlight 검색을 열어요.</li>
