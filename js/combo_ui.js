@@ -9,7 +9,12 @@
     last: null,
     async write(t) {
       Clip.last = String(t);
-      try { if (root.PODesktop && root.PODesktop.toolCopy) await root.PODesktop.toolCopy(Clip.last); else await navigator.clipboard.writeText(Clip.last); return true; } catch (e) { return false; }
+      const D = root.PODesktop;
+      for (const f of [D && D.copy, D && D.toolCopy, (t) => navigator.clipboard.writeText(t)]) {
+        if (typeof f !== 'function') continue;
+        try { await f(Clip.last); return true; } catch (e) {  }
+      }
+      return false;
     },
   };
 

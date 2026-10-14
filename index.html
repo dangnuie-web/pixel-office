@@ -23,7 +23,7 @@
     <button role="tab" data-tab="shelf" aria-selected="false">자료 보관</button>
     <div class="tab-sep" role="presentation"></div>
     <button role="tab" data-tab="cards" aria-selected="false">직원 카드</button>
-    <button role="tab" data-tab="settings" aria-selected="false">설정</button>
+    <div class="tab-row"><button role="tab" data-tab="settings" aria-selected="false">설정</button><button type="button" class="tab-ico" id="btn-refresh" aria-label="새로고침" title="새로고침 (⌘R)"><i aria-hidden="true"></i></button></div>
     <div class="tab-foot" id="mode-badge"></div>
   </nav>
   <main id="main">
@@ -64,6 +64,7 @@
     <section id="screen-pixel" class="screen" hidden><div id="pixel"></div></section>
     <section id="screen-f13" class="screen scroll" hidden><div id="f13"></div></section>
   </main>
+  <div id="po-ask"></div>
 </div>
 <script src="js/edition.js"></script>
 <script src="js/platform.js"></script>
@@ -94,12 +95,15 @@
 <script src="js/combo_core.js"></script>
 <script src="js/combo_ui.js"></script>
 <script src="js/pixel_core.js"></script>
+<script src="js/guide_core.js"></script>
+<script src="js/guide_ui.js"></script>
 <script src="js/shelf.js"></script>
 <script src="js/tools_core.js"></script>
 <script src="js/tools.js"></script>
 <script src="js/skills.js"></script>
 <script src="js/pixel_ui.js"></script>
 <script src="js/cards.js"></script>
+<script src="js/staff_ways.js"></script>
 <script src="js/credits.js"></script>
 <script src="js/settings.js"></script>
 <script src="js/firstrun.js"></script>

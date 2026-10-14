@@ -47,11 +47,20 @@
       } catch (e) {  }
     }
     emit();
+    if ('bossName' in part) syncBoss();
   }
   function reset() {
     const s = ls();
     if (s) { try { Object.keys(KEYS).forEach((k) => s.removeItem(KEYS[k])); } catch (e) {  } }
     emit();
+    syncBoss();
+  }
+  let bossTimer = null;
+  function syncBoss() {
+    const D = root.PODesktop;
+    if (!isPublic() || !D || typeof D.bossSave !== 'function') return;
+    if (bossTimer) clearTimeout(bossTimer);
+    bossTimer = setTimeout(() => { bossTimer = null; try { Promise.resolve(D.bossSave(values().bossName)).catch(() => {}); } catch (e) {  } }, 400);
   }
   function sub(str) {
     if (str == null) return str;
@@ -76,5 +85,6 @@
   const api = { KEYS, MAX, DEFAULTS, isPublic, titlePrefix, defaults, raw, values, isDefault, save, reset, sub, officeFull, onChange, applyDoc };
   root.PONames = api;
   root.PO_NM = sub;
+  if (root.document && root.PODesktop) syncBoss();
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

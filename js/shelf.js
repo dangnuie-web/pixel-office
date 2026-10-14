@@ -8,7 +8,7 @@
   const SAMPLE0 = { en: 'The quick brown fox jumps over the lazy dog 0123456789', ko: '다람쥐 헌 쳇바퀴에 타고파 0123456789' };
   const PUBLIC_FONT_NOTE = '폴더에 폰트를 담아보세요. 이 책에서 모아 볼 수 있어요.';
   const pub = () => root.PO_PUBLIC === true;
-  const noFontFiles = () => !!(SH.demo || root.PO_PUBLIC === true);
+  const noFontFiles = () => !!SH.demo;
   const COL = {
     아이콘: { c: '#3f9e9a', sh: '#2f7d7a', hi: '#5bb3af' },
     폰트: { c: '#29262F', sh: '#14121a', hi: '#3d3944' },
@@ -46,8 +46,9 @@
         const bytes = t ? new TextEncoder().encode(t.text).length : 0;
         const tags = CC.tagsOf(text);
         const isCombo = tags.includes('조합틀');
+        const isGuide = !!(GC() && GC().isGuide(text));
         books.push(Object.assign({ id: 'd:자료/' + kind + '/' + f.nfc, type: 'data', kind, file: f.nfc, path: dir + '/' + f.name, rel: dir + '/' + f.nfc, bytes, text, tags,
-          tagLine: text.split(/\r?\n/)[0].startsWith('태그:') ? text.split(/\r?\n/)[0] : '', combo: isCombo, readFail: !t, t: kind === '워크플로우' ? K.thickBinder(bytes) : K.thickData(bytes) }, meta, kind === '워크플로우' ? { ht: K.BINDER_HT } : {}));
+          tagLine: text.split(/\r?\n/)[0].startsWith('태그:') ? text.split(/\r?\n/)[0] : '', combo: isCombo, guide: isGuide, readFail: !t, t: kind === '워크플로우' ? K.thickBinder(bytes) : K.thickData(bytes) }, meta, kind === '워크플로우' ? { ht: K.BINDER_HT } : {}));
       }
     }
     books.sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'ko') || a.file.localeCompare(b.file, 'ko'));
@@ -81,7 +82,7 @@
     books.push({ id: 'ref', type: 'ref', kind: '레퍼런스', title: '레퍼런스북', count: SH.refs.length, t: K.thickAsset(SH.refs.length), ht: 244 });
     books.push({ id: 'doodle', type: 'doodle', kind: '낙서', title: '낙서장', count: SH.doodles.length, t: K.thickAsset(SH.doodles.length), ht: 210 });
     SH.skillErr = '';
-    if (SKU() && !pub()) {
+    if (SKU() && (!pub() || (root.PODesktop && typeof root.PODesktop.skillsList === 'function'))) {
       try { const r = await SKU().scanShelf(SH.handle); r.works.forEach((w) => books.push(w)); if (r.skill) books.push(r.skill); else SH.skillErr = SKU().S.err; } catch (e) { SH.skillErr = String(e && e.message || e); }
     }
     SH.books = books;
@@ -124,6 +125,55 @@
     return SH.loadP;
   }
   async function reload() { SH.loaded = false; SH.loadP = null; releaseAll(); await ensureLoaded(SH.handle); }
+  function bookSig(b) {
+    let x = '';
+    if (isData(b) || b.type === 'work') x = b.text + '|' + JSON.stringify(b.uses || '') + '|' + (b.owner || '');
+    else if (b.type === 'icon') x = JSON.stringify(SH.icons.entries);
+    else if (b.type === 'font') x = SH.fonts.map((f) => f.path).join('\n') + JSON.stringify(SH.licRows);
+    else if (b.type === 'ref') x = SH.refs.map((r) => r.path).join('\n');
+    else if (b.type === 'doodle') x = SH.doodles.map((d) => d.path).join('\n');
+    else if (b.type === 'pixel') x = JSON.stringify(SH.pixel.groups.map((g) => [g.key, g.vers.map((v) => [v.file, v.t, !!v.error])]));
+    else if (b.type === 'skill' && SKU()) x = JSON.stringify([SKU().S.table, SKU().S.usageText, SKU().S.agents]);
+    return b.id + '|' + (b.count == null ? '' : b.count) + '|' + (b.bytes == null ? '' : b.bytes) + '|' + x;
+  }
+  const shelfSig = () => SH.books.map(bookSig).join('\u0000');
+  async function refresh(opts) {
+    const force = !!(opts && opts.force);
+    if (!SH.loaded || !SH.handle || SH.refreshing || SH.loadP && !SH.loaded) return false;
+    const busy = () => SH.opening || SH.zoom || SH.pz || typingIn(document.activeElement) || (SKU() && SKU().S && (SKU().S.pick || SKU().S.confirm));
+    if (!force && busy()) return false;
+    SH.refreshing = true;
+    try {
+      const before = shelfSig(), openId = SH.bk && SH.bk.id, openSig = SH.bk ? bookSig(SH.bk) : null, oldBooks = SH.books;
+      try { await scan(); } catch (e) { return false; }
+      SH.pixelDirty = false;
+      if (shelfSig() === before) { SH.books = oldBooks; return false; }
+      const nb = openId ? SH.books.find((b) => b.id === openId) : null;
+      SH.refreshed = (SH.refreshed || 0) + 1;
+      const shown = SH.el && SH.el.closest('.screen') && !SH.el.closest('.screen').hidden;
+      if (SH.view === 'book' && openId) {
+        if (!nb) { if (shown) closeBook(); else { SH.bk = null; SH.view = 'shelf'; } return true; }
+        if (bookSig(nb) === openSig) { const i = SH.books.indexOf(nb); if (i >= 0) SH.books[i] = SH.bk; return true; }
+        SH.bk = nb;
+        if (!shown) SH.needPages = true;
+        else {
+          const a0 = SH.spread * (SH.perUsed || per());
+          releaseAll();
+          if (nb.type === 'font' && !noFontFiles()) await Promise.all(SH.fonts.map(loadFont));
+          await buildPages(nb);
+          SH.spread = K.spreadOf(Math.min(a0, Math.max(0, SH.pages.length - 1)), per());
+          renderBook();
+        }
+      } else if (shown && SH.view === 'shelf' && $('sf-case')) {
+        const sel = $('sf-kind');
+        if (sel) { const tmp = document.createElement('div'); tmp.innerHTML = shelfHtml(); const ns = tmp.querySelector('#sf-kind'); if (ns) sel.innerHTML = ns.innerHTML; sel.value = SH.kind; }
+        const f = document.activeElement && document.activeElement.classList && document.activeElement.classList.contains('sf-bk') ? document.activeElement.dataset.id : null;
+        drawCase();
+        if (f) { const sp = SH.el.querySelector('.sf-bk[data-id="' + cssEsc(f) + '"]'); if (sp) sp.focus({ preventScroll: true }); }
+      }
+      return true;
+    } finally { SH.refreshing = false; }
+  }
 
   async function loadFont(f) {
     if (noFontFiles()) return;
@@ -147,6 +197,10 @@
   }
 
   const isData = (b) => b.type === 'data';
+  const GC = () => root.POGuideCore;
+  const GU = () => root.POGuideUI;
+  const perOf = (b) => (b && b.guide ? 1 : per());
+  const tierOf = (b) => (b && b.guide ? 'make' : K.tierOf(b));
   function hitsOf(b, q) {
     if (!q) return 0;
     if (isData(b)) return K.countHits(b.file, q) + (b.bytes > 1048576 ? K.countHits(b.tagLine, q) : K.countHits(b.text, q));
@@ -160,6 +214,7 @@
   }
   const PX_COMBO = () => (root.POToolsUI && root.POToolsUI.icon ? root.POToolsUI.icon('combo', 2) : '');
   function spine(b, o) {
+    if (b.guide && GU()) return GU().spine(b, o || {});
     const col = colOf(b), binder = K.isBinder(b);
     const body = binder ? K.BINDER : col;
     const st = '--t:' + b.t + 'px;--ht:' + (b.ht || 224) + 'px;--c:' + body.c + ';--sh:' + body.sh + ';--hi:' + body.hi + (binder ? ';--tc:' + col.c + ';--tsh:' + col.sh : '');
@@ -186,7 +241,7 @@
       (o.flag ? '<span class="flag">' + o.flag + '</span>' : '') + (o.ribbon ? '<span class="ribbon" aria-hidden="true"></span>' : '') + '</button>';
   }
   function shelfHtml() {
-    const kinds = K.KINDS.filter((k) => !pub() || (k !== '작업지시서' && k !== '스킬')).map((k) => '<option value="' + k + '"' + (SH.kind === k ? ' selected' : '') + '>' + k + ' ' + SH.books.filter((b) => b.kind === k).length + '권</option>').join('');
+    const kinds = K.KINDS.filter((k) => !pub() || (k !== '작업지시서' && (k !== '스킬' || !!(root.PODesktop && root.PODesktop.skillsList)))).map((k) => '<option value="' + k + '"' + (SH.kind === k ? ' selected' : '') + '>' + k + ' ' + SH.books.filter((b) => b.kind === k).length + '권</option>').join('');
     return '<div class="sf-head"><h2>자료 보관<small id="sf-count">' + SH.books.length + '권</small></h2>' +
       '<div class="sf-find" role="search"><select id="sf-kind" aria-label="종류"><option value=""' + (SH.kind ? '' : ' selected') + '>전체 ' + SH.books.length + '권</option>' + kinds + '</select>' +
       '<input id="sf-q" type="search" placeholder="이름, 태그, 본문에서 찾기" aria-label="찾기" value="' + esc(SH.q) + '"><kbd>/</kbd></div></div>' +
@@ -241,11 +296,13 @@
     const last = store.get('po.shelf.last', null);
     let html = '';
     K.TIER_ORDER.forEach((tier) => {
-      const inTier = lst.filter((b) => K.tierOf(b) === tier);
-      const tierAll = SH.books.filter((b) => K.tierOf(b) === tier).length;
+      const inTier = lst.filter((b) => tierOf(b) === tier);
+      const tierAll = SH.books.filter((b) => tierOf(b) === tier).length;
       if (!inTier.length && filtering) return;
       const items = [];
-      const dataB = inTier.filter(isData).sort(K.toolCmp), restB = inTier.filter((b) => !isData(b));
+      const guideB = inTier.filter((b) => b.guide && GU());
+      guideB.forEach((b) => items.push({ w: 48 + 12, html: GU().spine(b, { flag: flags[b.id] }) }));
+      const dataB = inTier.filter((b) => isData(b) && !(b.guide && GU())).sort(K.toolCmp), restB = inTier.filter((b) => !isData(b));
       dataB.forEach((b, i) => {
         if (i && K.toolKey(b) !== K.toolKey(dataB[i - 1])) items.push({ w: 9, html: '<span class="sf-gap" aria-hidden="true"></span>' });
         items.push({ w: b.t + 3, html: spine(b, { flag: flags[b.id], ribbon: b.id === last }) });
@@ -295,7 +352,7 @@
     return { 프롬프트: '40_자산/자료/프롬프트/ 에 md 파일을 넣으면 여기 꽂혀요.', 워크플로우: '40_자산/자료/워크플로우/ 에 md 파일을 넣으면 여기 꽂혀요.',
       아이콘: '40_자산/아이콘/(스타일)/ 에 그림을 넣으면 여기 꽂혀요.', 폰트: '40_자산/폰트/영문/ · 한글/ 에 폰트를 넣으면 여기 꽂혀요.',
       낙서: '40_자산/낙서/ 에 그림을 넣으면 여기 꽂혀요.', 레퍼런스: '40_자산/레퍼런스/ 에 그림을 넣으면 여기 꽂혀요.', 픽셀: (pub() ? '직원 카드 탭의 [픽셀 공방]' : '무늬 카드 [픽셀 공방]') + '에서 그리고 저장하면 꽂혀요.',
-      작업지시서: '00_운영/정리·10_프로젝트/01_진행/강의 의 작업지시서 4개를 원본 자리에서 읽어요.', 스킬: '00_운영/도구/스킬표.json 을 읽으면 스킬책이 꽂혀요.' }[kind] || '';
+      작업지시서: '00_운영/정리·10_프로젝트/01_진행/강의 의 작업지시서 4개를 원본 자리에서 읽어요.', 스킬: pub() ? '사무실 폴더 .claude/skills/ 에 스킬이 있으면 스킬책이 꽂혀요.' : '00_운영/도구/스킬표.json 을 읽으면 스킬책이 꽂혀요.' }[kind] || '';
   }
 
   const pageSize = () => (root.innerHeight < 720 ? { w: 360, h: 486 } : { w: 400, h: 540 });
@@ -324,7 +381,8 @@
     if (opt.page != null) page = opt.page;
     else if (SH.q0) page = hitPage(SH.q0);
     if (page == null) { const s = store.get('po.shelf.page.' + id, null); if (typeof s === 'number' && s < SH.pages.length) page = s; }
-    SH.spread = K.spreadOf(Math.max(0, page || 0), per());
+    if (b.guide && GU() && opt.page == null && !SH.q0) page = GU().firstUnseen(b.gd);
+    SH.spread = K.spreadOf(Math.max(0, page || 0), perOf(b));
     if (opt.ch) { const c = SH.chapters.find((x) => x.name === opt.ch); if (c) SH.spread = K.spreadOf(c.page, per()); }
     if (opt.sel) SH.sel = opt.sel;
     renderBook();
@@ -341,6 +399,12 @@
     SH.layout = layoutKey();
     const P = pageSize();
     SH.chapters = []; SH.pages = [];
+    if (isData(b) && b.guide && GC()) {
+      const g = b.gd = GC().parse(b.text);
+      SH.pages = g.chapters.map((c, i) => ({ type: 'gch', i }));
+      SH.rawStart = 0;
+      return;
+    }
     if (isData(b)) {
       b.parsed = b.parsed || K.parseData(b.text);
       const pre = [];
@@ -506,9 +570,9 @@
       inner = '<div class="sf-pin"><div class="sf-phead"><h4>' + p.lang + '<small>' + n + '개' + '</small></h4><span class="sf-reset-slot" data-lang="' + key + '">' + resetHtml(key, changed) + '</span></div><div class="sf-frows">' +
         p.fonts.map((f) => {
           const s = SH.fontState[f.path] || {};
-          const lic = s.ok === false && !noFontFiles() ? '글꼴 파일을 읽지 못함' : (K.licenseFor(SH.licRows, f.file) || '출처.md에 없음');
+          const lic = s.ok === false && !noFontFiles() ? '글꼴 파일을 읽지 못함' : (K.licenseFor(SH.licRows, f.file) || (pub() && !SH.licRows ? '' : '출처.md에 없음'));
           return '<div class="sf-fr' + (p.lang === '한글' ? ' ko' : '') + '"><div class="spec" contenteditable="plaintext-only" spellcheck="false" role="textbox" aria-label="' + esc(f.name) + ' 시험 문구" data-lang="' + key + '" style="font-family:' + (s.ok && !noFontFiles() ? '\'' + f.fam + '\',' : '') + 'var(--font)">' + esc(txt) + '</div><div class="meta"><b>' + markHtml(f.name, SH.q0) + '</b><span>' + esc(lic) + '</span></div></div>';
-        }).join('') + '</div>' + (noFontFiles() ? '<div class="sf-fnote pub">' + PUBLIC_FONT_NOTE + '</div>' : p.lang === '한글' && n < 3 ? '<div class="sf-fnote">한글 폰트를 40_자산/폰트/한글/ 에 넣으면 이 장에 줄이 붙어요.<br>라이선스는 폰트/출처.md 표에서 읽어요.</div>' : '') + '</div>';
+        }).join('') + '</div>' + (noFontFiles() || (pub() && !n) ? '<div class="sf-fnote pub">' + PUBLIC_FONT_NOTE + '</div>' : pub() ? '' : p.lang === '한글' && n < 3 ? '<div class="sf-fnote">한글 폰트를 40_자산/폰트/한글/ 에 넣으면 이 장에 줄이 붙어요.<br>라이선스는 폰트/출처.md 표에서 읽어요.</div>' : '') + '</div>';
     }
     if (p.type === 'pixel') inner = sketchHtml(p, side, i);
     if (/^(sktoc|skill|workL|workR)$/.test(p.type)) inner = SKU().pageHtml(p, side, i);
@@ -518,6 +582,13 @@
       K.refLayout(p, P.w, P.h).forEach((g) => { inner += photoHtml(g); });
     }
     return '<div class="sf-page ' + side + ' ' + paper + '"' + st + '>' + inner + num + '</div>';
+  }
+  async function dropGuide() {
+    const b = SH.bk; if (!b || !b.guide) return;
+    const msg = SH.el.querySelector('.gd-msg');
+    try { await root.PODesktop.trash(b.rel); } catch (e) { if (msg) msg.textContent = '못 버렸어요: ' + e.message; return; }
+    closeBook(); await reload(); renderShelf();
+    if (SH.el) { const n = SH.el.querySelector('.sf-note-drop') || document.createElement('p'); n.className = 'sf-note-drop'; n.textContent = '처음 안내 책을 버렸어요(사무실 _to_delete 폴더로). 설정 탭 [처음 안내 책 다시 꽂기]로 다시 꽂을 수 있어요.'; const top = SH.el.querySelector('.sf-shelf'); if (top) top.prepend(n); }
   }
   const resetHtml = (key, changed) => (changed ? '<button class="sf-linkish" data-reset="' + key + '">처음 문구로</button>' : '<span class="aside">문구를 눌러 바꿀 수 있어요</span>');
   function photoHtml(g) {
@@ -604,6 +675,7 @@
     const b = SH.bk; if (!b || SH.opening) return;
     const v = SH.el.querySelector('.sf-book'); if (!v) return;
     if (SH.layout !== layoutKey()) { const a0 = SH.spread * SH.perUsed; SH.opening = true; buildPages(b).then(() => { SH.opening = false; releaseAll(); SH.spread = K.spreadOf(a0 || 0, per()); renderBook(); }); return; }
+    if (b.guide && GU()) return renderGuide(b, v);
     const col = frameCol(b), n = per(), P = pageSize();
     SH.perUsed = n;
     const total = SH.pages.length, spreads = Math.max(1, Math.ceil(total / n));
@@ -628,14 +700,43 @@
       '<div class="sf-stage">' + navBtn(-1, SH.spread === 0) +
       '<div class="sf-cover"><div class="sf-spread' + (n === 1 ? ' single' : '') + '">' + (n === 2 ? pageHtml(a, 'L') + pageHtml(a + 1, 'R') : pageHtml(a, 'L')) + '</div>' + zoom +
       (isSkill ? SKU().overlay(P, n) + SKU().tabsHtml(a, n) : '') +
-      (SH.chapters.length > 1 ? '<div class="sf-tabsix">' + SH.chapters.map((c) => '<button data-page="' + c.page + '" aria-current="' + chOn(c, a, n) + '" title="' + esc(c.name) + '">' + esc(c.name) + '</button>').join('') + '</div>' : '') + '</div>' +
+      (SH.chapters.length > 1 ? '<div class="sf-tabsix' + (SH.chapters.length > 6 ? ' many' : '') + '">' + SH.chapters.map((c) => '<button data-page="' + c.page + '" aria-current="' + chOn(c, a, n) + '" title="' + esc(c.name) + '">' + esc(c.name) + '</button>').join('') + '</div>' : '') + '</div>' +
       navBtn(1, SH.spread >= spreads - 1) + '</div>' +
       slip + '<div class="sf-foot"><span class="num">' + num + '</span><span class="keys"><span>← → 넘기기</span><span>Esc 닫기</span>' + (isSkill ? SKU().footKeys() : '') + '</span></div>';
     if (isData(b) && SH.rawStart && root.POCombo) root.POCombo.mountBook(v, b);
     if (b.type === 'pixel') paintPixels(v);
+    v.querySelectorAll('.gd-vid img').forEach((img) => { const no = () => img.parentNode.classList.add('none'); img.onerror = no; if (img.complete && img.naturalWidth === 0) no(); });
     paint();
     loadVisible();
     if (b.type === 'icon') loadSlip();
+  }
+
+  function renderGuide(b, v) {
+    const g = b.gd, n = per(), P = pageSize(), total = g.chapters.length;
+    SH.spread = Math.max(0, Math.min(SH.spread, total - 1));
+    const cur = SH.spread;
+    if (SH.gdPrev != null && SH.gdPrev !== cur) GU().leave(b, SH.gdPrev, cur);
+    SH.gdPrev = cur; SH.perUsed = 1;
+    store.set('po.shelf.page.' + b.id, cur);
+    const canDrop = !!(root.PODesktop && typeof root.PODesktop.trash === 'function') && !SH.demo;
+    const pg = (side, inner) => '<div class="sf-page ' + side + ' paper-text" style="width:' + P.w + 'px;height:' + P.h + 'px">' + inner + '</div>';
+    const s = GU().seenSet(), seen = g.chapters.filter((c) => s.has(c.name)).length;
+    v.className = 'sf-book k-guide-book';
+    v.style.cssText = '--c:#EEEDE8;--sh:#C7C3BB;--hi:#FFFFFF;--spread-w:' + ((n === 2 ? P.w * 2 + 24 : P.w + 24) + 120) + 'px;' + GU().vars();
+    v.innerHTML = '<div class="sf-top"><div class="sf-btitle"><span class="sf-chip"></span><h3>' + esc(b.title) + '</h3><span>' + total + '장 중 ' + seen + '장 봄</span></div>' +
+      '<button class="sf-btn sf-close" data-close="1">닫기<kbd>Esc</kbd></button></div>' +
+      '<div class="sf-stage">' + navBtn(-1, cur === 0) + '<div class="sf-cover"><div class="sf-spread' + (n === 1 ? ' single' : '') + '">' +
+      (n === 2 ? pg('L', GU().tocHtml(g, cur, canDrop)) : '') + pg(n === 2 ? 'R' : 'L', GU().chapterHtml(g, cur, canDrop)) + '</div>' + GU().tagsHtml(g, cur) + '</div>' +
+      navBtn(1, cur >= total - 1) + '</div>' +
+      '<div class="sf-foot"><span class="num">' + String(cur + 1).padStart(2, '0') + ' / ' + String(total).padStart(2, '0') + '</span><span class="keys"><span>← → 장 넘기기</span><span>Esc 닫기</span></span></div>';
+    v.querySelectorAll('.gd-video img').forEach((img) => { const no = () => img.parentNode.classList.add('none'); img.onerror = no; if (img.complete && img.naturalWidth === 0) no(); });
+  }
+  function guideGo(i) { const b = SH.bk; if (!b || !b.guide) return; SH.dir = i > SH.spread ? 1 : -1; SH.spread = Math.max(0, Math.min(b.gd.chapters.length - 1, i)); renderBook(); const t = SH.el.querySelector('.gd-tag.now'); if (t) t.focus({ preventScroll: true }); }
+  function guideCoach(i) {
+    const b = SH.bk; if (!b || !b.guide) return;
+    const c = b.gd.chapters[i], steps = GU().coachSteps(b.gd.pages.filter((p) => p.ch === c.name));
+    closeBook();
+    GU().coachStart(steps, (fin) => { if (fin) GU().markSeen(c.name); if (SH.el && SH.view === 'shelf') drawCase(); });
   }
 
   function slipHtml(a, n) {
@@ -778,7 +879,7 @@
   }
 
   function turn(to) {
-    const spreads = Math.max(1, Math.ceil(SH.pages.length / per()));
+    const spreads = Math.max(1, Math.ceil(SH.pages.length / perOf(SH.bk)));
     const t = Math.max(0, Math.min(spreads - 1, to));
     if (t === SH.spread) return false;
     SH.dir = t > SH.spread ? 1 : -1; SH.spread = t; SH.pz = null;
@@ -799,10 +900,14 @@
   }
   function onClick(e) {
     if (SKU() && SKU().S.pick && !e.target.closest('.sk-pick, [data-sa="pick"]')) { SKU().escape(); if (!e.target.closest('button')) return; }
-    const t = e.target.closest('button, .sf-zoom'); if (!t || !SH.el.contains(t)) return;
+    const t = e.target.closest('button, .sf-zoom, [data-gd-ch]'); if (!t || !SH.el.contains(t)) return;
     if (t.dataset.sa && SKU()) { SKU().onClick(t); return; }
     if (t.closest('.cb-pin')) return;
     if (t.dataset.close) return closeBook();
+    if (t.dataset.guideDrop) return dropGuide();
+    if (t.dataset.gdCh != null && SH.bk && SH.bk.guide) return guideGo(+t.dataset.gdCh);
+    if (t.dataset.gdDone != null && SH.bk && SH.bk.guide) { GU().markSeen(SH.bk.gd.chapters[+t.dataset.gdDone].name); return guideGo(Math.min(SH.bk.gd.chapters.length - 1, +t.dataset.gdDone + 1)); }
+    if (t.dataset.gdCoach != null && SH.bk && SH.bk.guide) return guideCoach(+t.dataset.gdCoach);
     if (t.dataset.sk) {
       const g = SH.pixel.groups.find((x) => x.key === t.dataset.sk); if (!g) return;
       SH.pz = { key: g.key, vi: g.vers.indexOf(g.show) }; SH.pxSel = g.key; renderBook();
@@ -870,6 +975,7 @@
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && root.POCombo && SH.el.querySelector('.cb-pin')) { e.preventDefault(); root.POCombo.primaryCopy(SH.bk.id); return; }
       if (typing || SH.opening) return;
       if (SKU() && SKU().onKey(e)) return;
+      if (e.key === 'Enter' && e.target && e.target.dataset && e.target.dataset.gdCh != null && e.target.tagName === 'LI') { e.preventDefault(); guideGo(+e.target.dataset.gdCh); return; }
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const d = e.key === 'ArrowRight' ? 1 : -1; if (SH.zoom) return zoomStep(d); flashNav(d, turn(SH.spread + d) ? 140 : 300); return; }
       if (e.key === 'Home') { e.preventDefault(); return turn(0); }
       if (e.key === 'End') { e.preventDefault(); return turn(1e9); }
@@ -901,14 +1007,16 @@
       root.addEventListener('resize', onResize);
     }
     if (handle && handle !== SH.handle) { SH.view = 'shelf'; SH.bk = null; releaseAll(); el.innerHTML = ''; }
+    const wasLoaded = SH.loaded;
     if (!SH.loaded) el.innerHTML = '<p class="sf-wait">책꽂이를 읽는 중…</p>';
     try { await ensureLoaded(handle); } catch (e) {
       el.innerHTML = '<div class="sf-empty"><p>자료를 읽지 못했어요.</p><p class="sub">' + esc(e && e.message || e) + '</p></div>';
       return;
     }
     if (SH.pixelDirty) await refreshPixel();
-    if (SH.view === 'book' && SH.bk) { if (!el.querySelector('.sf-book')) { renderShelf(); } if (SH.bk.type === 'font' && !noFontFiles()) await Promise.all(SH.fonts.map(loadFont)); SH.el.querySelector('.sf-shelf').hidden = true; SH.el.querySelector('.sf-book').hidden = false; el.classList.add('open'); renderBook(); return; }
-    renderShelf();
+    if (SH.view === 'book' && SH.bk) { if (SH.needPages) { SH.needPages = false; releaseAll(); await buildPages(SH.bk); SH.spread = Math.min(SH.spread, Math.max(0, Math.ceil(SH.pages.length / per()) - 1)); } if (!el.querySelector('.sf-book')) { renderShelf(); } if (SH.bk.type === 'font' && !noFontFiles()) await Promise.all(SH.fonts.map(loadFont)); SH.el.querySelector('.sf-shelf').hidden = true; SH.el.querySelector('.sf-book').hidden = false; el.classList.add('open'); renderBook(); }
+    else renderShelf();
+    if (wasLoaded) refresh().catch(() => {});
   }
   async function openFromOutside(id, opt) {
     await ensureLoaded(SH.handle);
@@ -936,6 +1044,6 @@
   function comboBooks() { return SH.books.filter((b) => isData(b) && b.combo).slice().sort((a, b) => b.date.localeCompare(a.date) || a.title.localeCompare(b.title, 'ko')); }
 
   const SKAPI = { S: SH, renderBook, paginate, pageSize, per, copyText, openBook: openFromOutside, refreshSpine: () => {} };
-  root.POShelf = { render, ensureLoaded, miniLoad, miniCase, isEmptyShelf, reload, openBook: openFromOutside, closeBook, comboBooks, copyText, S: SH, IMG, turn, paginate, refreshPixel, markPixelDirty, openPixel,
+  root.POShelf = { render, refresh, ensureLoaded, miniLoad, miniCase, isEmptyShelf, reload, openBook: openFromOutside, closeBook, comboBooks, copyText, S: SH, IMG, turn, paginate, refreshPixel, markPixelDirty, openPixel,
     debug: () => ({ spreads: [...IMG.spreads.keys()].sort((a, b) => a - b), bitmaps: [...IMG.spreads.values()].reduce((n, e) => n + [...e.items.values()].filter((x) => x.bmp).length, 0), slip: SLIP.size, zoom: !!SH.zoomUrl, decoded: SH.decodeLog.slice() }) };
 })(window);

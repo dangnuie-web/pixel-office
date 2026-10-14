@@ -1,7 +1,7 @@
 {
   "name": "pixel-office-pet",
   "productName": "Pixel Office Pet",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "바탕화면 펫 (Pixel Office 세트)",
   "license": "SEE LICENSE IN LICENSE",

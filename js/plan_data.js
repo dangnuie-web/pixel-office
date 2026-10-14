@@ -26,6 +26,7 @@
     const p = { project, raw, dir, roadmapPath: dir + '/로드맵.md', parsed: null, now: null, plan: { path: null, goal: '', why: '로드맵 없음' } };
     let text;
     try { text = (await FS.readText(S.handle, p.roadmapPath)).text; } catch (e) { return p; }
+    p.text = text;
     p.parsed = C.parseRoadmapCells(text, S.names);
     p.now = C.roadmapNow(p.parsed);
     let pp = C.planPathOf(p.parsed.planLine, dir);
@@ -226,6 +227,62 @@
     if (!p || !p.now || !p.now.cell || inTodo(project, p.now.cell)) return false;
     return add(section || 'Today', { short: p.now.cell.short, project, key: p.now.cell.key });
   }
+  const sameName = (a, b) => String(a).normalize('NFC').toLowerCase().replace(/\s+/g, ' ') === String(b).normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
+  function nameTaken(name) {
+    if (S.projects.some((p) => sameName(p.project, name))) return '진행 중인 프로젝트에 같은 이름이 있어요.';
+    for (const [, k] of ARCH) if ((S.archive[k] || []).some((a) => sameName(a.project, name))) return k + ' 목록에 같은 이름이 있어요.';
+    return '';
+  }
+  async function createProject(input) {
+    if (!writable()) return { ok: false, error: S.test ? '시연 보기에서는 만들지 않아요.' : '데스크톱 앱에서만 만들 수 있어요.' };
+    const c = C.cleanProjectName(input);
+    if (!c.ok) return c;
+    const taken = nameTaken(c.name);
+    if (taken) return { ok: false, error: taken + ' 다른 이름으로 해 주세요.' };
+    const path = GO + '/' + c.name + '/로드맵.md';
+    try { await FS.writeNewRoadmap(path, C.roadmapSkeleton(c.name)); }
+    catch (e) {
+      if (e && e.code === 'EEXIST') return { ok: false, error: '같은 이름의 폴더가 이미 있어요. 다른 이름으로 해 주세요.' };
+      return { ok: false, error: '못 만들었어요: ' + ((e && e.message) || e) };
+    }
+    const p = await readProject(c.name);
+    S.projects = S.projects.filter((x) => x.project !== p.project).concat([p]).sort((a, b) => a.raw.localeCompare(b.raw, 'ko'));
+    changed('projects');
+    return { ok: true, project: p.project };
+  }
+  function ownerChoices() {
+    let boss = '';
+    try { boss = root.PONames && root.PONames.values ? root.PONames.values().bossCall : ''; } catch (e) { boss = ''; }
+    const out = [];
+    S.staff.forEach((x) => { if (x.name && x.name !== boss && !out.some((o) => o.name === x.name)) out.push({ name: x.name, key: x.key, boss: false }); });
+    if (boss) out.push({ name: boss, key: null, boss: true });
+    return out;
+  }
+  async function addTask(project, task, owner) {
+    if (!writable()) return { ok: false, error: S.test ? '시연 보기에서는 저장하지 않아요.' : '데스크톱 앱에서만 넣을 수 있어요.' };
+    const p = S.projects.find((x) => x.project === project);
+    if (!p || !p.roadmapPath) return { ok: false, error: '로드맵을 못 찾았어요.' };
+    owner = owner == null ? '' : String(owner);
+    if (owner && !ownerChoices().some((o) => o.name === owner)) return { ok: false, error: '담당을 골라 주세요.' };
+    try {
+      const cur = (await FS.readText(S.handle, p.roadmapPath)).text;
+      const r = C.roadmapAddLine(cur, task, owner, S.names);
+      if (!r.ok) return r;
+      await FS.writeRoadmapAdd(S.handle, p.roadmapPath, r.text);
+      p.text = r.text; p.parsed = C.parseRoadmapCells(r.text, S.names); p.now = C.roadmapNow(p.parsed);
+      changed('projects');
+      return { ok: true, where: r.where, label: r.label, line: r.line };
+    } catch (e) { return { ok: false, error: '로드맵에 못 넣었어요: ' + ((e && e.message) || e) }; }
+  }
+  function addWhere(project) {
+    const p = S.projects.find((x) => x.project === project);
+    if (!p || p.text == null) return null;
+    const r = C.roadmapAddLine(p.text, '미리 보기', '', S.names);
+    return r.ok ? { where: r.where, label: r.label } : null;
+  }
+  function sig() {
+    return JSON.stringify([S.names, S.projects.map((p) => [p.raw, p.text || null, p.plan && p.plan.goal]), ARCH.map(([, k]) => (S.archive[k] || []).map((a) => [a.project, a.done, a.total, a.goal])), [...S.descs], S.todo.lastText, S.err]);
+  }
   function staffKey(name) { const x = S.staff.find((s) => s.name === name); return x ? x.key : null; }
 
   async function checkRoadmap(it) {
@@ -272,6 +329,6 @@
   function status() { return writable() ? S.todo.status : { kind: 'readonly' }; }
   function flush() { return save(); }
 
-  Object.assign(api, { TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
+  Object.assign(api, { createProject, addTask, addWhere, ownerChoices, nameTaken, sig, TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
   root.POPlanData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

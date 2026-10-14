@@ -54,8 +54,13 @@ ipcMain.handle('po:list', (e, rel) => fs.readdirSync(resolveSafe(rel), { withFil
   .map((d) => ({ name: d.name, kind: d.isDirectory() ? 'directory' : 'file' })));
 
 const NEW_ONLY = [/^40_자산\/픽셀\//];
+function guardRoster(rel) {
+  const segs = String(rel).normalize('NFC').split('/').filter((x) => x !== '' && x !== '.');
+  if (segs.length === 1 && segs[0].toLowerCase() === 'claude.md') throw new Error('CLAUDE.md 는 직원 명부라 여기서 못 바꿔요: ' + rel);
+}
 ipcMain.handle('po:write', (e, rel, text, opts) => {
   const full = resolveSafe(rel);
+  guardRoster(rel);
   const newOnly = !!(opts && opts.newOnly) || NEW_ONLY.some((re) => re.test(String(rel).normalize('NFC')));
   fs.mkdirSync(path.dirname(full), { recursive: true });
   fs.writeFileSync(full, String(text), newOnly ? { flag: 'wx' } : undefined);
@@ -64,11 +69,13 @@ ipcMain.handle('po:write', (e, rel, text, opts) => {
 ipcMain.handle('po:append', (e, rel, text) => {
   if (NEW_ONLY.some((re) => re.test(String(rel).normalize('NFC')))) throw new Error('새 파일만 쓰는 곳이에요: ' + rel);
   const full = resolveSafe(rel);
+  guardRoster(rel);
   fs.appendFileSync(full, String(text));
   return true;
 });
 ipcMain.handle('po:move', (e, from, to) => {
   const a = resolveSafe(from), b = resolveSafe(to);
+  guardRoster(from); guardRoster(to);
   if (!fs.existsSync(a)) throw new Error('없음: ' + from);
   if (fs.existsSync(b)) throw new Error('이미 있음: ' + to);
   fs.mkdirSync(path.dirname(b), { recursive: true });
@@ -77,6 +84,7 @@ ipcMain.handle('po:move', (e, from, to) => {
 });
 ipcMain.handle('po:trash', (e, rel) => {
   const full = resolveSafe(rel);
+  guardRoster(rel);
   const n = new Date(), p2 = (x) => String(x).padStart(2, '0');
   const d = n.getFullYear() + p2(n.getMonth() + 1) + p2(n.getDate()) + '_' + p2(n.getHours()) + p2(n.getMinutes()) + p2(n.getSeconds());
   const dest = path.join(OFFICE, '_to_delete', d, rel);
@@ -149,6 +157,14 @@ ipcMain.handle('po:accept-image', (e, abs) => acceptImage(String(abs || '')));
 app.on('before-quit', () => { runner.stopAll(); jsonRunner.stopAll(); });
 
 ipcMain.handle('po:office-get', () => ({ path: OFFICE, from: OFFICE_FROM, public: PUBLIC }));
+ipcMain.handle('po:copy', (e, text) => { clipboard.writeText(String(text == null ? '' : text).slice(0, 200000)); return true; });
+ipcMain.handle('po:office-open', async () => {
+  if (!OFFICE) return { ok: false, error: '사무실 폴더를 아직 고르지 않았어요.' };
+  try { if (!fs.statSync(OFFICE).isDirectory()) return { ok: false, error: '사무실 폴더를 찾지 못했어요.' }; } catch (e) { return { ok: false, error: '사무실 폴더를 찾지 못했어요.' }; }
+  const err = await shell.openPath(OFFICE);
+  return err ? { ok: false, error: err } : { ok: true };
+});
+if (PUBLIC) ipcMain.handle('po:boss-save', (e, name) => { try { return OF.saveBoss(app.getPath('userData'), name); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } });
 const PET = require('./pet');
 const petOpts = () => ({ platform: process.platform, home: HOME, env: process.env, pub: PUBLIC });
 ipcMain.handle('po:pet-info', () => PET.info(petOpts()));
@@ -169,6 +185,22 @@ ipcMain.handle('po:office-pick', async () => {
   if (r.canceled || !r.filePaths.length) return { ok: false, canceled: true };
   try { return switchOffice(r.filePaths[0]); } catch (err) { return { ok: false, error: String(err && err.message || err) }; }
 });
+
+if (PUBLIC) {
+  const ST = require('./staff');
+  const staffCall = (fn) => { try { return fn(); } catch (err) { return { ok: false, error: String(err && err.message || err) }; } };
+  ipcMain.handle('po:staff-state', () => staffCall(() => ST.state(office())));
+  ipcMain.handle('po:staff-hire', (e, input) => staffCall(() => ST.hire(office(), input)));
+  ipcMain.handle('po:staff-fire', (e, input) => staffCall(() => ST.fire(office(), input)));
+  ipcMain.handle('po:staff-rename', (e, input) => staffCall(() => ST.rename(office(), input)));
+  ipcMain.handle('po:skills-list', () => staffCall(() => ST.skillsList(office())));
+  ipcMain.handle('po:guide-replant', () => staffCall(() => {
+    const GB = require('./guide_book'), p = resolveSafe(GB.REL);
+    if (fs.existsSync(p)) return { ok: true, existed: true };
+    fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, GB.TEXT, { flag: 'wx' });
+    return { ok: true, created: true };
+  }));
+}
 
 const SK = require('./skeleton');
 let PARENT = null;
@@ -204,6 +236,7 @@ function createWindow() {
   win.loadFile(path.join(ROOT, 'index.html'));
   win.webContents.on('will-navigate', (e, url) => { if (!url.startsWith('file://')) { e.preventDefault(); } });
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.on('before-input-event', (e, input) => { if (WF.refreshKey(input, DEV)) { e.preventDefault(); win.webContents.send('po:refresh-key'); } });
   if (DEV) {
     if (process.platform !== 'win32') process.on('SIGUSR2', () => win.webContents.capturePage().then((img) => {
       fs.mkdirSync(path.join(ROOT, 'preview', 'dev'), { recursive: true });

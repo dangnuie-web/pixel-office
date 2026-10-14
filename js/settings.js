@@ -3,7 +3,21 @@
   const N = root.PONames;
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  function fit(el) { const t = el.value || el.placeholder; let w = 0; for (const ch of t) w += /[ᄀ-ￜ]/.test(ch) ? 1 : 0.58; el.style.width = (w + 0.3) + 'em'; }
+  let fitCtx = null;
+  function fit(el) {
+    const t = el.value || el.placeholder || '';
+    const cs = getComputedStyle(el), px = parseFloat(cs.fontSize) || 15;
+    let w = 0;
+    try {
+      fitCtx = fitCtx || document.createElement('canvas').getContext('2d');
+      fitCtx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      w = fitCtx.measureText(t).width;
+    } catch (e) { w = 0; }
+    if (!w && t) w = [...t].reduce((a, c) => a + (/[ᄀ-ￜ]/.test(c) ? 1 : 0.65), 0) * px;
+    const pad = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0) + (parseFloat(cs.borderLeftWidth) || 0) + (parseFloat(cs.borderRightWidth) || 0);
+    el.style.width = Math.ceil(Math.max(2.6 * px, w + pad + 2)) + 'px';
+  }
+  root.POFitName = fit;
 
   function creditsHtml() {
     const C = root.POCredits;
@@ -57,7 +71,7 @@
           '</div>' +
         '</div>' +
         '<div class="st-foot"><button class="pr-btn" id="st-reset">기본값으로</button></div>' +
-      '</div>' + petHtml() + creditsHtml();
+      '</div>' + folderHtml() + petHtml() + creditsHtml();
     const $ = (id) => box.querySelector('#' + id);
     const inO = $('st-office'), inB = $('st-boss');
     function paint() {
@@ -83,7 +97,38 @@
     box.querySelectorAll('.st-name').forEach((nm) => nm.addEventListener('mousedown', (e) => { if (e.target.tagName !== 'INPUT') { e.preventDefault(); nm.querySelector('input').focus(); } }));
     $('st-reset').addEventListener('click', () => { N.reset(); render(box); box.querySelector('#st-saved').textContent = '기본값으로 바꿨어요'; });
     paint();
-    bindPet(box);
+    bindPet(box); bindFolder(box);
+  }
+  function folderHtml() {
+    const D = root.PODesktop;
+    if (!D || typeof D.officeOpen !== 'function') return '';
+    const fm = root.POPlat ? root.POPlat.fileMgr() : 'Finder', pub = N.isPublic();
+    return '<div class="st-panel st-folder" id="st-folder">' +
+      '<p class="st-pv-t">사무실 폴더</p>' +
+      '<p class="st-desc">' + (pub ? '사무실은 내 컴퓨터의 폴더 하나예요. ' + fm + '에서 열어 파일을 직접 볼 수 있어요.' : '지금 연 사무실 폴더를 ' + fm + '에서 엽니다.') + '</p>' +
+      '<div class="st-foot">' + (typeof D.guideReplant === 'function' ? '<button class="pr-btn" id="st-guide-go">처음 안내 책 다시 꽂기</button>' : '') + '<button class="pr-btn" id="st-folder-go">사무실 폴더 열기 (' + esc(fm) + ')</button></div>' +
+      '<p class="st-hint" id="st-folder-msg" aria-live="polite" hidden></p>' +
+    '</div>';
+  }
+  function bindFolder(box) {
+    const gb = box.querySelector('#st-guide-go');
+    if (gb) gb.addEventListener('click', async () => {
+      const m = box.querySelector('#st-folder-msg'); let r;
+      try { r = await root.PODesktop.guideReplant(); } catch (e) { r = { ok: false, error: e.message }; }
+      m.textContent = r && r.ok ? (r.existed ? '처음 안내 책은 이미 자료 보관에 꽂혀 있어요.' : '자료 보관 워크플로우 칸에 처음 안내 책을 다시 꽂았어요.') : '꽂지 못했어요: ' + ((r && r.error) || '알 수 없는 오류');
+      m.hidden = false;
+      if (r && r.ok && root.POShelf && root.POShelf.S.loaded) root.POShelf.reload().catch(() => {});
+    });
+    const btn = box.querySelector('#st-folder-go'), msg = box.querySelector('#st-folder-msg');
+    if (!btn) return;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      let r;
+      try { r = await root.PODesktop.officeOpen(); } catch (e) { r = { ok: false, error: String(e && e.message || e) }; }
+      msg.textContent = r && r.ok ? '' : '열지 못했어요: ' + ((r && r.error) || '알 수 없는 오류');
+      msg.hidden = !!(r && r.ok);
+      btn.disabled = false;
+    });
   }
   function petHtml() {
     const P = root.POPet;

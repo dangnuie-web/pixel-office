@@ -506,6 +506,83 @@
     });
   }
 
+  const PROJECT_NAME_MAX = 40;
+  const WIN_DEVICE_NAME = /^(con|prn|aux|nul|conin\$|conout\$|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+  function cleanProjectName(v) {
+    const s = String(v == null ? '' : v).normalize('NFC').replace(/[ \t 　]+/g, ' ').trim();
+    if (!s) return { ok: false, error: '프로젝트 이름을 적어 주세요.' };
+    if (Array.from(s).length > PROJECT_NAME_MAX) return { ok: false, error: '이름이 너무 길어요. ' + PROJECT_NAME_MAX + '자까지 돼요.' };
+    const bad = s.match(/[\\/:*?"<>|\u0000-\u001f\u007f]/);
+    if (bad) return { ok: false, error: '폴더 이름에 못 쓰는 글자가 있어요. \\ / : * ? " < > | 는 빼 주세요.' };
+    if (/^\./.test(s)) return { ok: false, error: '점(.)으로 시작하는 이름은 숨김 폴더가 돼서 못 써요.' };
+    if (/\.$/.test(s)) return { ok: false, error: '점(.)으로 끝나는 이름은 못 써요.' };
+    if (WIN_DEVICE_NAME.test(s) || /^_to_delete$/i.test(s) || /^[^.~]{1,7}~\d{1,7}(\.[^.]{1,3})?$/.test(s) || /\.(pem|key)$/i.test(s) || /^id_rsa/i.test(s)) return { ok: false, error: '컴퓨터가 따로 쓰는 이름이라 못 써요. 다른 이름으로 해 주세요.' };
+    return { ok: true, name: s };
+  }
+  function roadmapSkeleton(name) { return '# ' + name + ' 로드맵\n\n한 줄 목표:\n\n## 1단계 — 시작\n\n'; }
+  const TASK_MAX = 120;
+  function cleanTask(v) {
+    const s = String(v == null ? '' : v).normalize('NFC').replace(/\s+/g, ' ').trim();
+    if (!s) return { ok: false, error: '할 일을 적어 주세요.' };
+    if (Array.from(s).length > TASK_MAX) return { ok: false, error: '할 일이 너무 길어요. ' + TASK_MAX + '자까지 돼요.' };
+    if (/[\u0000-\u001f\u007f]/.test(s)) return { ok: false, error: '못 쓰는 글자가 있어요.' };
+    if (/담당\s*[:：]/.test(s)) return { ok: false, error: '담당은 아래 알약에서 골라 주세요. 할 일 글에서 "담당:"은 빼 주세요.' };
+    if (/<!--|-->/.test(s)) return { ok: false, error: '<!-- --> 는 못 써요.' };
+    return { ok: true, text: s };
+  }
+  const taskLine = (text, owner) => '- [ ] ' + text + (owner ? ' — 담당: ' + owner : '');
+  function roadmapAddLine(text, task, owner, names) {
+    const t = cleanTask(task); if (!t.ok) return t;
+    const ow = String(owner == null ? '' : owner).normalize('NFC').trim();
+    if (/[\u0000-\u001f\u007f]|담당\s*[:：]|<!--|-->/.test(ow)) return { ok: false, error: '담당 이름이 올바르지 않아요.' };
+    const src = String(text == null ? '' : text);
+    const nl = /\r\n/.test(src) ? '\r\n' : '\n';
+    const lines = src.split(/\r?\n/);
+    const parsed = parseRoadmapCells(src, names || []);
+    const now = roadmapNow(parsed);
+    const secs = parsed.sections.map((s, i) => ({ s, from: s.line, to: i + 1 < parsed.sections.length ? parsed.sections[i + 1].line - 1 : lines.length }));
+    const topEnd = secs.length ? secs[0].from - 1 : lines.length;
+    function afterLastCell(a, b) {
+      let last = -1, fence = null;
+      for (let k = a; k < b; k++) {
+        const f = lines[k].match(FENCE_RE);
+        if (f) { if (!fence) fence = f[1][0]; else if (f[1][0] === fence) fence = null; continue; }
+        if (!fence && cellOf(lines[k])) last = k;
+      }
+      if (last < 0) return -1;
+      let k = last + 1;
+      while (k < b && /^[ \t]+\S/.test(lines[k]) && !cellOf(lines[k])) k++;
+      return k;
+    }
+    function afterLastText(a, b) { let k = b; while (k > a && !lines[k - 1].trim()) k--; return k; }
+    const inSec = (x) => { const c = afterLastCell(x.from, x.to); return c >= 0 ? c : afterLastText(x.from, x.to); };
+    const labelOf = (x) => (x.s.kind === 'decide' ? '정할 것' : x.s.label);
+    let at, where, label = '';
+    if (now.state === 'now' && now.cell.section >= 0) { const x = secs[now.cell.section]; at = inSec(x); where = 'now'; label = labelOf(x); }
+    else if (now.state === 'now') { at = afterLastCell(0, topEnd); where = 'top'; }
+    else {
+      const x = secs.filter((y) => y.s.kind === 'stage').pop() || secs.filter((y) => y.s.kind !== 'later').pop();
+      if (x) { at = inSec(x); where = 'last'; label = labelOf(x); }
+      else {
+        where = 'top';
+        at = afterLastCell(0, topEnd);
+        if (at < 0) at = secs.length ? afterLastText(0, topEnd) : (lines.length > 1 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length);
+      }
+    }
+    if (at > 0 && at < lines.length && /^#{1,6}\s/.test(lines[at - 1].trim()) && lines[at] === '') at++;
+    if (lines.length === 1 && lines[0] === '') at = 0;
+    const row = taskLine(t.text, ow);
+    lines.splice(at, 0, row);
+    return { ok: true, text: lines.join(nl), line: at + 1, where, label, row };
+  }
+  function isAddLineChange(oldText, newText) {
+    const a = String(oldText == null ? '' : oldText).split(/\r?\n/), b = String(newText == null ? '' : newText).split(/\r?\n/);
+    if (b.length !== a.length + 1) return false;
+    let k = 0; while (k < a.length && a[k] === b[k]) k++;
+    for (let j = k; j < a.length; j++) if (a[j] !== b[j + 1]) return false;
+    return /^- \[ \] \S/.test(b[k]);
+  }
+
   const POSTIT_TITLE_MAX = 32;
   function textWidth(s) { let w = 0; for (const ch of String(s)) { const c = ch.codePointAt(0); w += c >= 0x20 && c <= 0x7e ? 1 : 2; } return w; }
   const nonSpaceLen = (s) => Array.from(String(s).replace(/\s+/g, '')).length;
@@ -934,6 +1011,7 @@
     PLAN_KEY_LEN, ROADMAP_MISS, cellOf, isPlaceholder, parseStageTitle, planKey, parseRoadmapCells, cellLabel, roadmapNow,
     POSTIT_TITLE_MAX, textWidth, postitTitle,
     planPathOf, planGoalOf, suggestInitial, suggestSearch, planTodoLine, roadmapMark, checkRoadmapCell, isCheckOnlyChange,
+    PROJECT_NAME_MAX, TASK_MAX, cleanProjectName, roadmapSkeleton, cleanTask, roadmapAddLine, isAddLineChange,
     SIGNAL_DESK_MIN, SIGNAL_MAX_MIN, isoToMin, parseSignals, signalVerdict, applySignals,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

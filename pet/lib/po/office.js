@@ -64,12 +64,36 @@ function loadSaved(userData, opts) {
   const c = checkOfficeDir(j.office, opts);
   return c.ok ? c.path : null;
 }
-function save(userData, dir) {
+function readStore(userData) {
+  try { const j = JSON.parse(fs.readFileSync(path.join(userData, STORE), 'utf8')); return j && typeof j === 'object' && !Array.isArray(j) ? j : {}; } catch (e) { return {}; }
+}
+function writeStore(userData, j) {
   fs.mkdirSync(userData, { recursive: true });
   const f = path.join(userData, STORE), tmp = f + '.tmp';
-  fs.writeFileSync(tmp, JSON.stringify({ office: dir, savedAt: new Date().toISOString() }, null, 2) + '\n');
+  fs.writeFileSync(tmp, JSON.stringify(j, null, 2) + '\n');
   fs.renameSync(tmp, f);
   return f;
+}
+function save(userData, dir) {
+  const old = readStore(userData);
+  const j = { office: dir, savedAt: new Date().toISOString() };
+  if (typeof old.bossName === 'string') j.bossName = old.bossName;
+  return writeStore(userData, j);
+}
+const BOSS_MAX = 8;
+function cleanBoss(v) {
+  if (typeof v !== 'string') return null;
+  const s = v.normalize('NFC').replace(/[\u0000-\u001f\u007f*_`[\]()|:]/g, '').replace(/\s+/g, ' ').trim().replace(/님$/, '').trim();
+  return s ? Array.from(s).slice(0, BOSS_MAX).join('') : null;
+}
+function saveBoss(userData, name) {
+  const b = cleanBoss(name);
+  if (!b) return { ok: false, error: '대표 이름이 비어 있거나 쓸 수 없는 글자뿐이에요.' };
+  const j = readStore(userData);
+  if (j.bossName === b) return { ok: true, bossName: b, same: true };
+  j.bossName = b;
+  writeStore(userData, j);
+  return { ok: true, bossName: b };
 }
 
 function resolveStart({ env, pub, home, userData, appRoot }) {
@@ -80,4 +104,4 @@ function resolveStart({ env, pub, home, userData, appRoot }) {
   return d ? { path: d, from: 'default' } : { path: null, from: null };
 }
 
-module.exports = { EDITIONS, STORE, isPublic, edition, userDataPath, defaultOffice, checkOfficeDir, pathProblem, hasMarker, loadSaved, save, resolveStart };
+module.exports = { EDITIONS, STORE, isPublic, edition, userDataPath, defaultOffice, checkOfficeDir, pathProblem, hasMarker, loadSaved, save, saveBoss, cleanBoss, readStore, resolveStart };

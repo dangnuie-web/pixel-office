@@ -216,9 +216,9 @@
     },
   };
   function autoW(el) {
+    if (root.POFitName) return root.POFitName(el);
     const s = el.value || el.placeholder;
-    const em = [...s].reduce((a, c) => a + (/[ㄱ-힝]/.test(c) ? 1 : 0.58), 0) + 0.3;
-    el.style.width = Math.min(10.5, Math.max(2.6, em)) + 'em';
+    el.style.width = ([...s].reduce((a, c) => a + (/[ㄱ-힝]/.test(c) ? 1 : 0.65), 0) + 1.2) + 'em';
   }
   function paintStaffList() {
     const card = $('fr-card');

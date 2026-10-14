@@ -6,6 +6,9 @@
   const LN = () => root.PO_LINES || {};
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const nfc = C.nfc;
+  const pub = () => root.PO_PUBLIC === true && !!D() && typeof D().skillsList === 'function';
+  const guideName = () => { const g = SK.roster.find((x) => x.id === 'squirrel' || x.animal === '다람쥐'); return g ? g.name : '비서'; };
+  const mainName = () => (root.PO_PUBLIC === true ? guideName() : '토리');
 
   const SK = {
     handle: null, table: null, err: '', roster: [], agents: null, agentsKnown: false, usage: {}, usageText: {}, works: [],
@@ -35,15 +38,34 @@
   const keyOf = (name) => { const s = staffOf(name); return s ? s.key : null; };
   function applyCards() {
     const TT = T(); if (!TT || !TT.setStaffTools) return;
-    if (!SK.table || !SK.roster.length) { TT.setStaffTools(null); return; }
+    if (!SK.table || !SK.roster.length || pub()) { TT.setStaffTools(null); return; }
     TT.setStaffTools(C.staffTools(SK.table.skills, keyOf, TT.DEFS).map, 'table');
   }
   async function readTable() {
+    if (pub()) return readPublic();
     const t = await readText(C.TABLE_PATH);
     if (t == null) { SK.table = null; SK.err = '스킬표.json 을 읽지 못했어요 (00_운영/도구/스킬표.json).'; return; }
     const p = C.parseTable(t);
     if (!p.ok) { SK.table = null; SK.err = p.error; return; }
     SK.table = p; SK.err = '';
+  }
+  async function readPublic() {
+    let r = null;
+    try { r = await D().skillsList(); } catch (e) { r = { ok: false, error: e.message }; }
+    if (!r || !r.ok) { SK.table = null; SK.err = '스킬을 읽지 못했어요' + (r && r.error ? ': ' + r.error : ''); SK.agents = null; SK.agentsKnown = false; return; }
+    const agents = {};
+    Object.keys(r.agents || {}).forEach((id) => { agents[id] = C.parseAgentHead(r.agents[id]); });
+    SK.agents = agents; SK.agentsKnown = true;
+    SK.usage = {}; SK.usageText = {};
+    const skills = r.skills.map((x) => {
+      const t = nfc(x.text).replace(/\r\n?/g, '\n'), body = t.replace(/^---\n[\s\S]*?\n---\n/, '');
+      const dm = t.match(/^description:\s*(.+)$/m); let what = dm ? dm[1].trim() : ''; try { if (/^"/.test(what)) what = JSON.parse(what); } catch (e) {  }
+      const u = C.parseUsage(body); u.what = what || u.what; u.run = { owner: '', staff: '' };
+      SK.usage[x.folder] = u; SK.usageText[x.folder] = body;
+      const staff = SK.roster.filter((p) => agents[p.key] && agents[p.key].skills.includes(x.folder)).map((p) => p.name);
+      return { id: x.folder, name: u.title || x.folder, folder: x.folder, kind: '스킬', claude: x.folder, btn: '', fence: [], fenceNote: '', staff, block: {}, info: false };
+    });
+    SK.table = { ok: true, raw: null, skills, warnings: [] }; SK.err = '';
   }
   function load(handle) {
     if (handle && handle !== SK.handle) { SK.handle = handle; SK.loadP = null; }
@@ -54,6 +76,7 @@
   }
   async function scanShelf(handle) {
     await load(handle);
+    if (pub()) return { works: [], skill: SK.table ? skillBook() : null };
     await readAgents();
     SK.usage = {}; SK.usageText = {};
     if (SK.table) {
@@ -84,8 +107,8 @@
   const short = (n) => (n === '바나 쌤' ? '바나' : n);
   const isMain = (name) => { const s = staffOf(name); return !!s && !s.id; };
   const agentOf = (name) => { const s = staffOf(name); return s && SK.agents ? SK.agents[s.key] || null : null; };
-  const readOnly = () => !!(SK.shelf && SK.shelf.S.demo) || !(D() && typeof D().write === 'function');
-  const roWhy = () => (SK.shelf && SK.shelf.S.demo ? '시연 보기는 읽기만이에요' : '붙이기·떼기는 데스크톱 앱에서만 돼요');
+  const readOnly = () => pub() || !!(SK.shelf && SK.shelf.S.demo) || !(D() && typeof D().write === 'function');
+  const roWhy = () => (pub() ? '직원 설명서 skills: 줄로 정해져요' : SK.shelf && SK.shelf.S.demo ? '시연 보기는 읽기만이에요' : '붙이기·떼기는 데스크톱 앱에서만 돼요');
 
   function spineHtml(b) {
     if (b.type === 'work') return '<i class="cap"></i><span class="pocket"><i class="chk"></i><span class="ti">' + esc(b.title) + '</span></span><i class="hole"></i><span class="ft">읽기만</span>';
@@ -141,9 +164,9 @@
       if (bk.infos) return '<div class="sk-grp"><div class="sk-grp-h"><i class="none solid"></i>설명 <small>붙이지 않음</small></div>' + bk.infos.map(ln).join('') + '</div>';
       const g = bk.g;
       return '<div class="sk-grp"><div class="sk-grp-h"><i style="--p:' + colOf(g.p.name) + '"></i>' + esc(g.p.name) + ' <small>' + esc(g.p.role) + ' · ' + g.items.length + '</small></div>' +
-        (g.items.length ? g.items.map(ln).join('') : '<div class="sk-toc-none">아직 없음. 스킬 쪽에서 ＋ 붙이기</div>') + '</div>';
+        (g.items.length ? g.items.map(ln).join('') : '<div class="sk-toc-none">' + (!pub() ? '아직 없음. 스킬 쪽에서 ＋ 붙이기' : g.p.name === guideName() ? 'Claude Code 본체라 모든 스킬을 그냥 써요' : '설명서에 미리 실린 스킬 없음') + '</div>') + '</div>';
     };
-    const head = p.first ? '<h3 class="sk-toc-h">스킬책</h3><p class="sk-toc-lead">직원이 쓰는 사내 스크립트 <b>' + scriptSkills().length + '개</b>. 붙이면 그 직원 카드에 버튼이 생기고, 떼면 사라집니다. 본문은 각 폴더 사용법.md에서 읽어요.</p>' : '';
+    const head = p.first ? '<h3 class="sk-toc-h">스킬책</h3><p class="sk-toc-lead">' + (pub() ? '이 사무실 .claude/skills 의 스킬 <b>' + scriptSkills().length + '개</b>. Claude Code에서 이 폴더를 열고 부르는 말을 붙여 넣으면 써요. 직원 이름 아래 스킬은 그 직원 설명서에 미리 실려 있어요.' : '직원이 쓰는 사내 스크립트 <b>' + scriptSkills().length + '개</b>. 붙이면 그 직원 카드에 버튼이 생기고, 떼면 사라집니다. 본문은 각 폴더 사용법.md에서 읽어요.') + '</p>' : '';
     return '<div class="sk-pg sk-toc">' + head + p.blocks.map(grp).join('') + '</div>';
   }
   const kbdify = (t) => esc(t).replace(/\[([^\]\n]{1,24})\]/g, '<kbd>$1</kbd>');
@@ -160,10 +183,10 @@
     if (!u) h += '<p class="sk-sum dim">사용법.md 를 읽지 못했어요 (00_운영/도구/' + esc(sk.folder) + '/사용법.md).</p>';
     else {
       h += '<p class="sk-sum">' + esc(u.what) + '</p>';
-      h += '<div class="sk-lab">대표 명령<span class="sk-acts"><button class="sk-mini" data-sa="open" data-id="' + esc(sk.id) + '"' + (desk ? '' : ' disabled title="데스크톱 앱에서만"') + '>사용법.md 열기</button>' +
+      h += '<div class="sk-lab">' + (pub() ? '부르는 말' : '대표 명령') + '<span class="sk-acts">' + (pub() ? '' : '<button class="sk-mini" data-sa="open" data-id="' + esc(sk.id) + '"' + (desk ? '' : ' disabled title="데스크톱 앱에서만"') + '>사용법.md 열기</button>') +
         (u.cmd ? '<button class="sk-mini' + (copied('cmd' + sk.id) ? ' done' : '') + '" data-sa="cmd" data-id="' + esc(sk.id) + '">' + (copied('cmd' + sk.id) ? '복사됨' : '복사') + '</button>' : '') + '</span></div>' +
-        (u.cmd ? '<pre class="sk-cmd">' + esc(u.cmd) + '</pre>' : '<p class="sk-sum dim">사용법.md 에 코드 블록이 없어요.</p>');
-      h += '<div class="sk-lab">누가 실행' + (btnName(sk) && !sk.info ? '<button class="sk-mini" data-sa="card" data-id="' + esc(sk.id) + '"' + (sk.staff.some((n) => keyOf(n)) ? '' : ' disabled title="붙은 직원이 없어요"') + '>카드로 가기</button>' : '') + '</div>' +
+        (u.cmd ? '<pre class="sk-cmd">' + esc(u.cmd) + '</pre>' : '<p class="sk-sum dim">' + (pub() ? 'SKILL.md' : '사용법.md') + ' 에 코드 블록이 없어요.</p>');
+      if (!pub()) h += '<div class="sk-lab">누가 실행' + (btnName(sk) && !sk.info ? '<button class="sk-mini" data-sa="card" data-id="' + esc(sk.id) + '"' + (sk.staff.some((n) => keyOf(n)) ? '' : ' disabled title="붙은 직원이 없어요"') + '>카드로 가기</button>' : '') + '</div>' +
         '<ul class="sk-who">' + (u.run.owner ? (root.PO_NM || String)('<li><b>당니님</b><span>') + kbdify(u.run.owner) + '</span></li>' : '') + (u.run.staff ? '<li><b>직원</b><span>' + kbdify(u.run.staff) + '</span></li>' : '') + '</ul>';
     }
     h += '<hr class="sk-hr">';
@@ -176,7 +199,7 @@
   }
   function attHtml(sk, side) {
     const name = btnName(sk);
-    let h = '<div class="sk-lab">붙은 직원</div><p class="sk-note">' + (name ? '붙은 직원 카드에 <kbd>' + esc(name) + '</kbd> 버튼이 있습니다. 동그라미를 누르면 뗍니다.' : '카드 버튼이 없는 스킬이라(앱 밖 실행) 붙여도 카드는 그대로입니다. 차례와 AI 직원 부탁에만 쓰입니다.') + '</p><div class="sk-atts">';
+    let h = '<div class="sk-lab">' + (pub() ? '미리 아는 직원' : '붙은 직원') + '</div><p class="sk-note">' + (pub() ? '직원 설명서 머리 skills: 줄에 이 스킬이 있는 직원이에요. 다른 직원 일이어도 ' + esc(mainName()) + '(Claude Code)에게 말하면 써요.' : name ? '붙은 직원 카드에 <kbd>' + esc(name) + '</kbd> 버튼이 있습니다. 동그라미를 누르면 뗍니다.' : '카드 버튼이 없는 스킬이라(앱 밖 실행) 붙여도 카드는 그대로입니다. 차례와 AI 직원 부탁에만 쓰입니다.') + '</p><div class="sk-atts">';
     if (sk.staff.length) h += sk.staff.map((w) => attRow(sk, w)).join('');
     else h += '<div class="sk-att empty"><span class="sk-who-chip"><i></i>없음</span><div class="sk-ai"><span class="st st-na">아무에게도 안 붙음</span></div></div>';
     if (sk.claude && SK.agentsKnown) people().filter((p) => !sk.staff.includes(p.name) && !isMain(p.name)).forEach((p) => {
@@ -188,7 +211,7 @@
     h += '</div>';
     if (!(SK.confirm && SK.confirm.id === sk.id)) {
       const ro = readOnly(), can = C.canAttach(sk);
-      if (can) h += '<button class="sk-add" data-sa="pick" data-id="' + esc(sk.id) + '" aria-haspopup="dialog"' + (ro ? ' disabled title="' + esc(roWhy()) + '"' : '') + '>＋ 붙이기</button>';
+      if (can && !pub()) h += '<button class="sk-add" data-sa="pick" data-id="' + esc(sk.id) + '" aria-haspopup="dialog"' + (ro ? ' disabled title="' + esc(roWhy()) + '"' : '') + '>＋ 붙이기</button>';
     }
     return h;
   }
@@ -204,7 +227,7 @@
     let a = '<span class="st st-' + ai.st + '">' + esc(ai.txt) + '</span>';
     if (ai.st === 'no') a += '<button class="sk-mini' + (SK.copied === k ? ' done' : '') + '" data-sa="ask" data-id="' + esc(sk.id) + '" data-who="' + esc(who) + '">' + (SK.copied === k ? '복사됨' : '부탁 문장 복사') + '</button>';
     if (ai.why) a += '<small>' + esc(ai.why) + '</small>';
-    if (sk.claude && !isMain(who) && SK.agentsKnown && agentOf(who) && !C.canRun(agentOf(who))) a += '<small>직접 실행 못 함 → 토리가 돌림</small>';
+    if (sk.claude && !isMain(who) && SK.agentsKnown && agentOf(who) && !C.canRun(agentOf(who))) a += '<small>직접 실행 못 함 → ' + esc(mainName()) + '가 돌림</small>';
     const known = !!staffOf(who);
     return '<div class="sk-att"><button class="sk-who-chip" style="--p:' + colOf(who) + '" data-sa="askdetach" data-id="' + esc(sk.id) + '" data-who="' + esc(who) + '"' + (ro ? ' disabled title="' + esc(roWhy()) + '"' : ' title="누르면 떼기"') + ' aria-label="' + esc(who) + (ro ? '' : ', 누르면 떼기') + '"><i></i>' + esc(short(who)) + (ro ? '' : '<span class="x" aria-hidden="true">×</span>') + '</button><div class="sk-ai">' + (known ? a : '<span class="st st-only">명부에 없는 이름</span>') + '</div></div>';
   }
@@ -214,7 +237,7 @@
       const on = sk.staff.includes(p.name), a = agentOf(p.name);
       let note = on ? '붙어 있음' : '';
       if (!on && sk.block[p.name]) note = '카드만 (AI 직원은 안 붙임)';
-      else if (!on && sk.claude && SK.agentsKnown && a && !C.canRun(a)) note = '토리가 대신 돌림';
+      else if (!on && sk.claude && SK.agentsKnown && a && !C.canRun(a)) note = mainName() + '가 대신 돌림';
       return '<li><button style="--p:' + colOf(p.name) + '" data-sa="attach" data-id="' + esc(sk.id) + '" data-who="' + esc(p.name) + '"' + (on ? ' disabled' : '') + '><i></i><span>' + esc(p.name) + '<small>' + esc(p.role) + '</small></span><em>' + esc(note) + '</em></button></li>';
     }).join('');
     const pi = pageOfSkill(sk.id), onLeft = pi % 2 === 0;
@@ -270,6 +293,7 @@
   }
   function bookSub(b) {
     if (b.type === 'work') return '작업지시서 · 읽기만';
+    if (pub()) return '.claude/skills · 읽기만';
     return '00_운영/도구 · 스킬표.json' + (readOnly() ? ' · ' + roWhy() : '');
   }
 

@@ -199,6 +199,7 @@
       return;
     }
     if (G.bubble) {
+      if (onWays() && !e.repeat && (k === 'Enter' || k === 'a' || k === 'A' || k === 'ㅁ')) { e.preventDefault(); if (k === 'Enter') wayNow(); else wayAI(); return; }
       if (k === 'Enter' && !e.repeat && G.bubble.petAt != null && !G.bubble.onDn && G.bubble.i === G.bubble.petAt) { petFromBubble(); return; }
       if (isAct) { if (e.repeat) return; nextBubble(); return; }
       if (isArrow) { closeBubble(false); if (G.tori.mode === 'enter') toriToFollow(); pressDir(k); return; }
@@ -340,6 +341,8 @@
       if (!G.els.win.contains(e.target)) { closeWin(); e.preventDefault(); }
       return;
     }
+    const wb = e.target && e.target.closest && e.target.closest('.dl-ways button');
+    if (wb && G.bubble) { e.preventDefault(); if (wb.dataset.way === 'now') wayNow(); else wayAI(); return; }
     if (G.els.dlg && G.els.dlg.contains(e.target)) { e.preventDefault(); if (G.bubble) nextBubble(); G.els.stage.focus(); return; }
     const c = tileFromEvent(e);
     if (!c) return;
@@ -1006,6 +1009,13 @@
     el.querySelector('.dl-name').textContent = NM(spk.name);
     el.querySelector('.dl-sr').textContent = B.text;
     drawText();
+    let wy = el.querySelector('.dl-ways');
+    if (onWays()) {
+      const W = B.ways.w, key = B.ways.s.key + '#' + B.i;
+      if (!wy) { wy = document.createElement('div'); wy.className = 'dl-ways'; el.querySelector('.dl-text').appendChild(wy); }
+      if (wy.dataset.k !== key) { wy.dataset.k = key; wy.innerHTML = '<button type="button" data-way="now">바로 하기 · ' + esc(W.label) + '</button><button type="button" data-way="ai">AI에게 맡기기</button>'; }
+    } else if (wy) wy.remove();
+    if (onWays()) { el.querySelector('.dl-more').innerHTML = 'Enter 바로 · A AI · Space 닫기'; if (el.hidden) { el.hidden = false; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); } return; }
     el.querySelector('.dl-more').innerHTML = B.onDn ? '<i class="go" aria-label="다음"></i>' : (B.i + 1) + ' / ' + B.list.length + (last ? (B.petAt === B.i ? ' · Enter 펫 띄우기 · Space 닫기' : ' · Space 닫기') : ' <i class="go" aria-label="다음"></i>');
     if (el.hidden) { el.hidden = false; el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
   }
@@ -1022,8 +1032,21 @@
       const n = (s.todayDone || []).length;
       list.push(s.mark === '?' ? '시작하고 기록이 한참 없어요. 확인이 필요해요.' : s.mark === '!' ? '오늘 일이 멈춰 있어요. 사정은 기록 메모에 있어요.' : n ? '오늘 ' + n + '건 끝냈어요.' : '오늘 끝낸 일은 아직 없어요.');
     }
-    G.bubble = { list, i: 0, save: null, kind: 'talk', dn: null, onDn: false, speaker: { name: s.name, sprite: LN.SPRITE[s.key], color: s.key }, who: s.key };
+    const SW = root.POStaffWays, W = SW && SW.waysOf(s);
+    let ways = null;
+    if (W) { list.push(W.guide ? '저한테는 그냥 말을 거시면 돼요. 앱에서 바로 하셔도 되고요.' : '일을 맡기는 길은 두 가지예요. 앱에서 바로 하거나, AI(Claude Code)에게 맡기거나요.'); ways = { s, w: W, at: list.length - 1 }; }
+    G.bubble = { list, i: 0, save: null, kind: 'talk', dn: null, onDn: false, speaker: { name: s.name, sprite: LN.SPRITE[s.key], color: s.key }, who: s.key, ways };
     hop(s.key);
+    setPage();
+  }
+  const onWays = () => { const B = G.bubble; return !!(B && B.ways && !B.onDn && B.i === B.ways.at); };
+  function wayNow() { const B = G.bubble; if (!B || !B.ways) return; const s = B.ways.s; closeBubble(false); root.POStaffWays.doNow(s); }
+  async function wayAI() {
+    const B = G.bubble; if (!B || !B.ways) return;
+    const SW = root.POStaffWays, r = await SW.askAI(B.ways.s);
+    if (G.bubble !== B) return;
+    B.list = B.list.slice(0, B.ways.at + 1).concat([r.ok ? '복사했어요: "' + r.text + '" ' + SW.PASTE : '복사하지 못했어요. Claude Code에서 이렇게 말해 보세요: "' + r.text + '"']);
+    B.i = B.ways.at + 1; B.copied = r.text;
     setPage();
   }
   function drawText() {

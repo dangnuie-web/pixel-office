@@ -55,7 +55,7 @@
     else if (S.last && S.last.error) st = '<span class="pr-st bad">저장 안 됨</span>';
     else if (S.last && S.last.at) st = '<span class="pr-st">저장됨 ' + esc(S.last.at) + '</span>';
     else st = '<span class="pr-st">' + (S.exists ? '10_프로젝트/약속.md' : '첫 일정을 적으면 10_프로젝트/약속.md가 생겨요') + '</span>';
-    return st + (S.test ? '' : '<button type="button" class="pr-btn ca-reload" data-focus="ca-reload">다시 읽기</button>');
+    return st;
   }
   const kindPill = (k) => `<span class="ca-kind-p ${kc(k)}">${esc(k || '—')}</span>`;
   const pjChip = (p) => (p ? ` <span class="ca-pj">${esc(p)}</span>` : '');
@@ -152,7 +152,6 @@
     q('.cal-prev').addEventListener('click', () => { const n = K.shift(v.y, v.m0, -1); go(K.ymd(n.y, n.m0, 1), 'cal-prev'); });
     q('.cal-next').addEventListener('click', () => { const n = K.shift(v.y, v.m0, 1); go(K.ymd(n.y, n.m0, 1), 'cal-next'); });
     q('.cal-now').addEventListener('click', () => go(v.today));
-    const rl = q('.ca-reload'); if (rl) rl.addEventListener('click', reload);
     el.querySelectorAll('.cal-day').forEach((b) => {
       b.addEventListener('click', () => go(b.dataset.date));
       b.addEventListener('keydown', (e) => {
@@ -177,10 +176,19 @@
     n.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => { if (b.dataset.act === 'undo') op('undo', {}); else { S.notice = null; paintMsg(); } }));
   }
   function paintMsg() { const n = S.el && S.el.querySelector('#ca-notice'); if (n) { n.innerHTML = msgHtml(); bindMsg(); } }
-  function paintStatus() { const s = S.el && S.el.querySelector('#ca-status'); if (s) { s.innerHTML = statusHtml(); const rl = s.querySelector('.ca-reload'); if (rl) rl.addEventListener('click', reload); } }
+  function paintStatus() { const s = S.el && S.el.querySelector('#ca-status'); if (s) s.innerHTML = statusHtml(); }
   function clearUndo() { clearTimeout(S.undoTimer); S.undoTimer = null; S.undo = null; }
   function setUndo(u) { clearUndo(); S.undo = u; S.undoTimer = setTimeout(() => { S.undo = null; paintMsg(); }, UNDO_MS); }
-  async function reload() { if (S.busy) return; S.form = null; S.ferr = null; S.notice = null; clearUndo(); await load(); paint('ca-reload'); }
+  async function reload() { if (S.busy) return; S.form = null; S.ferr = null; S.notice = null; clearUndo(); await load(); paint('cal:' + (S.sel || today())); }
+  async function autoRefresh() {
+    if (!S.el || !S.el.isConnected || S.busy || S.form || S.undo || S.test) return false;
+    const before = S.text, pj = S.projects.join('|');
+    await load();
+    if (S.busy || S.form || (S.text === before && S.projects.join('|') === pj)) return false;
+    const a = document.activeElement, fk = a && S.el.contains(a) && a.dataset ? a.dataset.focus : null;
+    paint(fk);
+    return true;
+  }
 
   const FIELD = { badDate: 'date', badTime: 'time', badKind: 'kind', badText: 'text', badProject: 'project' };
   const FOCUS_OF = { date: 'ca-in-date', time: 'ca-in-time', kind: 'ca-kind:미팅', text: 'ca-in-text', project: 'ca-sel-pj' };
@@ -289,7 +297,7 @@
     paint();
   }
 
-  Object.assign(api, { render, load, reload, op, paint, go, html, demoText, today, writable,
+  Object.assign(api, { render, load, reload, autoRefresh, op, paint, go, html, demoText, today, writable,
     snapshot: () => ({ sel: S.sel, y: S.y, m0: S.m0, form: S.form ? { mode: S.form.mode, date: S.form.date, sig: S.form.sig || null } : null, ferr: S.ferr, undo: S.undo ? { type: S.undo.type } : null, last: S.last, notice: S.notice, items: S.items.length, test: S.test }) });
   root.POCalendar = api;
 })(window);

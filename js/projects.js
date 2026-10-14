@@ -176,6 +176,16 @@
     el.onkeydown = (e) => { if (e.key === 'Escape' && S.modal) { S.modal = null; draw(); } };
   }
 
-  const api = { render, parseIdeas, state: S, fixedNow: null, pending: null, IDEAS };
+  async function autoRefresh() {
+    const f = F(IDEAS);
+    if (!S.el || !S.el.isConnected || S.modal || fdirty(f) || f.saving) return false;
+    const before = f.lastText;
+    await loadFile(IDEAS);
+    if (S.modal || f.lastText === before) return false;
+    S.err = f.err ? '아이디어보관함을 못 읽었어요. ' : '';
+    draw();
+    return true;
+  }
+  const api = { render, autoRefresh, parseIdeas, state: S, fixedNow: null, pending: null, IDEAS };
   root.POProjects = api;
 })(window);

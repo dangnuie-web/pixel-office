@@ -41,6 +41,7 @@
   ];
   const ALLOW_ROADMAP_CHECK = [/^10_프로젝트\/01_진행\/[^/]+\/로드맵\.md$/];
   const ALLOW_NEW = [/^40_자산\/픽셀\/\d{8}_픽셀_[^/]+_v\d{2,}\.json$/];
+  const ALLOW_NEW_ROADMAP = [/^10_프로젝트\/01_진행\/[^/]+\/로드맵\.md$/];
 
   function segmentsOk(path) {
     const segs = path.split('/');
@@ -57,11 +58,12 @@
     if (kind === 'write') return ALLOW_WRITE.some((re) => re.test(path));
     if (kind === 'check') return ALLOW_ROADMAP_CHECK.some((re) => re.test(path));
     if (kind === 'new') return ALLOW_NEW.some((re) => re.test(path));
+    if (kind === 'newRoadmap') return ALLOW_NEW_ROADMAP.some((re) => re.test(path));
     if (kind === 'exist') return ALLOW_EXIST_DIRS.some((re) => re.test(path)) || ALLOW_FILES.some((re) => re.test(path));
     return false;
   }
   function deny(path, kind) {
-    const e = new Error('허용 목록 밖 ' + (kind === 'write' || kind === 'check' || kind === 'new' ? '쓰기' : '읽기') + ' 차단: ' + kind + ' ' + String(path).normalize('NFC'));
+    const e = new Error('허용 목록 밖 ' + (kind === 'write' || kind === 'check' || kind === 'new' || kind === 'newRoadmap' ? '쓰기' : '읽기') + ' 차단: ' + kind + ' ' + String(path).normalize('NFC'));
     e.name = 'NotAllowed';
     throw e;
   }
@@ -160,6 +162,25 @@
     }
   }
 
+  async function writeNewRoadmap(path, text) {
+    path = String(path).normalize('NFC');
+    if (!segmentsOk(path) || !allowed(path, 'newRoadmap')) deny(path, 'newRoadmap');
+    const w = desktopWrite();
+    const dir = path.replace(/\/로드맵\.md$/, '');
+    if (root.PODesktop.kind && ((await root.PODesktop.kind(dir)) || (await root.PODesktop.kind(path)))) { const e = new Error('이미 있어요: ' + dir); e.name = 'Exists'; e.code = 'EEXIST'; throw e; }
+    try { return await w(path, String(text), { newOnly: true }); } catch (err) {
+      if (/EEXIST|exists/i.test(String(err && (err.code || err.message)))) { const e = new Error('이미 있어요: ' + dir); e.name = 'Exists'; e.code = 'EEXIST'; throw e; }
+      throw err;
+    }
+  }
+  async function writeRoadmapAdd(handle, path, newText) {
+    if (!segmentsOk(path) || !allowed(path, 'check')) deny(path, 'check');
+    const w = desktopWrite();
+    const cur = (await readText(handle, path)).text;
+    if (!root.POCore.isAddLineChange(cur, newText)) { const e = new Error('로드맵에는 할 일 한 줄만 넣을 수 있어요 (그 사이 파일이 바뀌었을 수 있음)'); e.name = 'NotAddOnly'; throw e; }
+    return w(path, String(newText));
+  }
+
   function idb() {
     return new Promise((res, rej) => {
       const q = indexedDB.open('pixel-office', 1);
@@ -211,5 +232,5 @@
     if (root.POPlat) root.POPlat.markHtml();
   }
 
-  root.POFS = { allowed, readText, listNames, listDirs, listAll, readBytes, readBlob, IMG_EXT, FONT_EXT, exists, isOfficeFolder, saveHandle, loadHandle, permission, pick, writeText, writeRoadmapCheck, writeNew };
+  root.POFS = { allowed, readText, listNames, listDirs, listAll, readBytes, readBlob, IMG_EXT, FONT_EXT, exists, isOfficeFolder, saveHandle, loadHandle, permission, pick, writeText, writeRoadmapCheck, writeNew, writeNewRoadmap, writeRoadmapAdd };
 })(typeof window !== 'undefined' ? window : globalThis);

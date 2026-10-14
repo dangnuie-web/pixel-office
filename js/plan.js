@@ -17,6 +17,9 @@
   const U = {
     el: null, handle: null, opts: {}, focus: loadFocus(), query: '', ddOpen: false, ddSel: 0, ddRows: [], expanded: new Set(),
     view: '진행', oldDone: false, editing: null, notice: null, noticeTimer: null, drag: null, clickGuard: 0,
+    mk: null,
+    task: null,
+    hl: null,
   };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (sel) => U.el && U.el.querySelector(sel);
@@ -85,12 +88,13 @@
     if (why === 'status') { paintStatus(); return; }
     if (why === 'notice') { paintPos(); if (U.ddOpen) paintDD(); return; }
     if (why === 'edit') { paintBoard(); paintPos(); if (U.ddOpen) paintDD(); paintStatus(); return; }
+    if (why === 'projects') { const n = $('#pl-sum'); if (n) n.textContent = D.state.projects.length; paintPos(); if (U.ddOpen) paintDD(); return; }
   }
   function drawAll() {
     const el = U.el;
     const sum = D.state.projects.length;
     el.innerHTML =
-      '<div class="pj-head pl-head"><h2>프로젝트 관리</h2><div class="pr-tools"><span id="pr-status">' + statusHtml() + '</span><button class="pr-btn" data-act="reload">다시 읽기</button></div></div>' +
+      '<div class="pj-head pl-head"><h2>프로젝트 관리</h2><div class="pr-tools"><span id="pr-status">' + statusHtml() + '</span></div></div>' +
       (D.state.test ? '<p class="pr-ro">시연 보기예요. ' + (root.PO_PUBLIC === true ? '예시 사무실의' : '시험자료의') + ' 예시 할 일만 보이고, 고쳐도 저장하지 않아요.</p>' : canWrite() ? '' : '<p class="pr-ro">브라우저에서는 읽기만 해요. 할 일 추가·체크는 데스크톱 앱(Pixel Office)에서 할 수 있어요.</p>') +
       (D.state.err ? '<p class="pj-err">' + esc(D.state.err) + '</p>' : '') +
       '<div id="pl-notice"></div>' +
@@ -103,10 +107,12 @@
       '<div class="pl-bh"><div class="pl-view" id="pl-view" role="tablist" aria-label="할 일 보기"></div>' +
         '<p class="pl-hint"><span class="lk"><i class="lk-dot"></i>로드맵 칸에서 고른 일 · 끝내면 그 칸도 같이 체크</span><span>카드를 끌어 칸을 옮기거나, 마우스를 올려 버튼으로</span></p></div>' +
       '<div class="pl-board" id="pl-board" role="tabpanel"></div>' +
-      '<div class="pl-sec-h"><h3>진행 중인 프로젝트</h3><small>' + sum + '</small><span class="turn" id="pl-turn"></span></div>' +
+      '<div class="pl-sec-h"><h3>진행 중인 프로젝트</h3><small id="pl-sum">' + sum + '</small><span class="turn" id="pl-turn"></span>' +
+        (canWrite() ? '<button class="pr-btn" data-act="mk-open" aria-expanded="' + !!U.mk + '" aria-controls="pl-mk">+ 새 프로젝트</button>' : '') + '</div>' +
+      '<div id="pl-mk"></div>' +
       '<div class="pl-pos" id="pl-pos"></div>' +
       '<div class="pl-fold" id="pl-fold">' + foldHtml() + '</div>';
-    paintNotice(); paintBoard(); paintPos();
+    paintNotice(); paintBoard(); paintMk(); paintPos();
     bind();
   }
 
@@ -159,27 +165,32 @@
     cls = cls || 'pl-goal';
     return v.desc ? '<p class="' + cls + '" data-src="' + v.descSrc + '" title="' + esc(v.descTitle + ': ' + v.desc) + '">' + esc(v.desc) + '</p>' : '<p class="' + cls + ' none" data-src="none">설명 없음</p>';
   }
+  const taskBtn = (v) => (canWrite() ? '<button class="pl-taskb" data-act="task-open" data-p="' + esc(v.project) + '" aria-expanded="' + !!(U.task && U.task.project === v.project) + '">+ 할 일</button>' : '');
+  const rowCls = (v) => 'pl-p' + (U.hl === v.project ? ' hl' : '');
+  const formOf = (v) => (U.task && U.task.project === v.project ? taskFormHtml(v) : '');
   function posRow(v) {
     const left = '<div><h5>' + esc(v.project) + '</h5>' + descHtml(v) + '</div>';
     if (v.state === 'empty' || v.state === 'done') {
-      return '<div class="pl-p" data-p="' + esc(v.project) + '">' + left + '<div class="pl-stage"><b>' + (v.state === 'done' ? '다 끝남' : '칸 없음') + '</b></div><div></div></div>';
+      return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + '<div class="pl-stage"><b>' + (v.state === 'done' ? '다 끝남' : '칸 없음') + '</b></div><div class="pl-top">' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>' + formOf(v) + '</div>';
     }
     const stage = v.state === 'later' ? '단계 끝' : v.stageLabel;
     const mid = '<div><div class="pl-stage"><b title="' + esc(stage) + '">' + esc(stage) + '</b>' + (v.state === 'now' ? '<small>지금 단계 남은 칸 ' + v.stageProgress.open + '/' + v.stageProgress.total + '</small>' : '') + '</div>' + bar(v) + '</div>';
     let right;
-    if (v.state === 'later') right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p></div>';
+    if (v.state === 'later') right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p>' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>';
     else {
       const add = v.cell.inTodo ? '<span class="pl-inT">Today에 있음</span>' : canWrite() ? '<button data-act="add-top" data-p="' + esc(v.project) + '">+ Today</button>' : '';
-      right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p title="' + esc(v.cell.text) + '">' + esc(v.cell.label) + '</p><div class="act">' + who(v.owners, v.ownerTurn) + add + '</div></div>';
+      right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p title="' + esc(v.cell.text) + '">' + esc(v.cell.label) + '</p><div class="act">' + who(v.owners, v.ownerTurn) + taskBtn(v) + add + '</div></div>';
     }
-    return '<div class="pl-p" data-p="' + esc(v.project) + '">' + left + mid + right + '</div>';
+    return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + mid + right + formOf(v) + '</div>';
   }
   function paintPos() {
     const e = $('#pl-pos'); if (!e) return;
+    const fx = focusKey();
     const pv = D.projectsView(), nm = D.noRoadmap();
     const rows = pv.map(posRow);
     if (nm.length) rows.push('<div class="pl-nomap-h">로드맵 없음 ' + nm.length + '</div>' + nm.map((v) => '<div class="pl-p nomap" data-p="' + esc(v.project) + '"><h5>' + esc(v.project) + '</h5>' + descHtml(v) + '</div>').join(''));
-    e.innerHTML = rows.length ? rows.join('') : '<p class="pl-empty dark">진행 중인 프로젝트 폴더를 못 읽었어요.</p>';
+    e.innerHTML = rows.length ? rows.join('') : '<p class="pl-empty dark">' + (canWrite() ? '진행 중인 프로젝트가 아직 없어요. 오른쪽 위 [+ 새 프로젝트]로 만들어 보세요.' : '진행 중인 프로젝트 폴더를 못 읽었어요.') + '</p>';
+    restoreFocus(fx);
     const t = $('#pl-turn'); if (t) { const n = pv.filter((v) => v.cell && v.ownerTurn).length; t.innerHTML = n ? (root.PO_NM || String)('<i></i>당니님 차례 ') + n : ''; }
   }
   function foldHtml() {
@@ -191,6 +202,108 @@
         : '<p class="pr-empty">' + (D.state.test ? '시연 보기에서는 비워 둬요.' : '없어요.') + '</p>';
       return '<details class="' + cls + '" data-fold="' + k + '"><summary><b>' + k + '</b><span class="n">' + list.length + '</span><small>' + esc(list.map((a) => a.project).join(', ')) + '</small></summary>' + items + '</details>';
     }).join('');
+  }
+
+  function focusKey() { const a = document.activeElement; return a && U.el && U.el.contains(a) && a.dataset && a.dataset.fk ? { k: a.dataset.fk, s: a.selectionStart, e: a.selectionEnd } : null; }
+  function restoreFocus(fx) {
+    if (!fx) return;
+    const t = U.el.querySelector('[data-fk="' + fx.k + '"]'); if (!t) return;
+    t.focus({ preventScroll: true });
+    if (t.setSelectionRange && fx.s != null) try { t.setSelectionRange(fx.s, fx.e); } catch (e) {  }
+  }
+  const msgHtml = (f) => (f.err ? '<p class="pl-addmsg" role="alert">' + esc(f.err) + '</p>' : '');
+  function paintMk() {
+    const e = $('#pl-mk'); if (!e) return;
+    const fx = focusKey(), f = U.mk;
+    const b = $('[data-act="mk-open"]'); if (b) b.setAttribute('aria-expanded', String(!!f));
+    e.innerHTML = !f ? '' : '<div class="pl-add pl-addpj" role="group" aria-label="새 프로젝트 만들기">' +
+      '<input class="pl-in" id="pl-mk-in" data-fk="mk-in" type="text" autocomplete="off" maxlength="' + (root.POCore.PROJECT_NAME_MAX + 10) + '" placeholder="새 프로젝트 이름" aria-label="새 프로젝트 이름" value="' + esc(f.value) + '"' + (f.busy ? ' disabled' : '') + (f.err ? ' aria-invalid="true"' : '') + '>' +
+      msgHtml(f) + '<button class="pr-btn primary" data-act="mk-ok" data-fk="mk-ok"' + (f.busy ? ' disabled' : '') + '>만들기</button><button class="pr-btn" data-act="mk-cancel" data-fk="mk-cancel">취소</button></div>';
+    restoreFocus(fx);
+  }
+  function openMk() { if (!canWrite()) return; if (!U.mk) U.mk = { value: '', err: '', busy: false }; paintMk(); const i = $('#pl-mk-in'); if (i) i.focus(); }
+  function closeMk(focusBtn) { U.mk = null; paintMk(); if (focusBtn) { const b = $('[data-act="mk-open"]'); if (b) b.focus(); } }
+  async function submitMk() {
+    const f = U.mk; if (!f || f.busy) return;
+    const inp = $('#pl-mk-in'); if (inp) f.value = inp.value;
+    f.busy = true; f.err = ''; paintMk();
+    const r = await D.createProject(f.value);
+    f.busy = false;
+    if (!r.ok) { f.err = r.error; paintMk(); const i = $('#pl-mk-in'); if (i) { i.focus(); i.select(); } return; }
+    U.mk = null; paintMk();
+    flash(r.project);
+    setNotice({ ok: true, text: '‘' + r.project + '’ 프로젝트를 만들었어요.' }, OK_MS);
+    const mb = $('[data-act="mk-open"]'); if (mb) mb.focus({ preventScroll: true });
+  }
+  const cssq = (v) => (root.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/["\\]/g, '\\$&'));
+  function flash(project) {
+    U.hl = project; paintPos();
+    const row = $('.pl-p[data-p="' + cssq(project) + '"]'); if (row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    clearTimeout(U.hlTimer); U.hlTimer = setTimeout(() => { U.hl = null; const r2 = $('.pl-p.hl'); if (r2) r2.classList.remove('hl'); }, 2400);
+  }
+  function whoPill(name, key, on) {
+    const pc = (key && LN.POINT && LN.POINT[key]) || '#9aa1ab';
+    return '<button type="button" class="pl-who" role="radio" data-act="own" data-own="' + esc(name) + '" aria-checked="' + on + '" tabindex="' + (on ? 0 : -1) + '" style="--pc:' + esc(pc) + '">' + esc(name || '없음') + '</button>';
+  }
+  function taskFormHtml(v) {
+    const f = U.task, ch = D.ownerChoices().concat([{ name: '', key: null }]);
+    const w = D.addWhere(v.project) || {};
+    const where = w.label ? '<b>' + esc(w.label) + '</b> 끝에 넣어요' + (w.where === 'last' && v.state !== 'empty' ? ' (지금 단계가 없어서 마지막 단계에)' : '') : '맨 위 칸들 끝에 넣어요';
+    return '<div class="pl-add" role="group" aria-label="' + esc(v.project) + ' 할 일 넣기"><p class="pl-addwhere">' + where + '</p>' +
+      '<input class="pl-in" id="pl-task-in" data-fk="task-in" type="text" autocomplete="off" maxlength="' + (root.POCore.TASK_MAX + 10) + '" placeholder="할 일 한 줄" aria-label="할 일" value="' + esc(f.value) + '"' + (f.busy ? ' disabled' : '') + (f.err ? ' aria-invalid="true"' : '') + '>' +
+      msgHtml(f) + '<button class="pr-btn primary" data-act="task-ok" data-fk="task-ok"' + (f.busy ? ' disabled' : '') + '>넣기</button><button class="pr-btn" data-act="task-cancel" data-fk="task-cancel">취소</button>' +
+      '<div class="pl-whos" role="radiogroup" aria-label="담당"><span>담당</span>' + ch.map((o) => whoPill(o.name, o.key, o.name === f.owner)).join('') + '</div></div>';
+  }
+  function openTask(project) {
+    if (!canWrite()) return;
+    if (U.task && U.task.project === project) { closeTask(true); return; }
+    const v = D.projectsView().find((x) => x.project === project);
+    const ch = D.ownerChoices();
+    const cur = v && v.owners && v.owners[0] && ch.some((o) => o.name === v.owners[0]) ? v.owners[0] : '';
+    U.task = { project, value: '', owner: cur, err: '', busy: false };
+    paintPos();
+    const i = $('#pl-task-in'); if (i) i.focus();
+  }
+  function closeTask(focusBtn) {
+    const p = U.task && U.task.project; U.task = null; paintPos();
+    if (focusBtn && p) { const b = $('.pl-taskb[data-p="' + cssq(p) + '"]'); if (b) b.focus(); }
+  }
+  function pickOwner(name, focus) {
+    if (!U.task) return;
+    U.task.owner = name;
+    U.el.querySelectorAll('.pl-whos .pl-who').forEach((x) => { const on = x.dataset.own === name; x.setAttribute('aria-checked', String(on)); x.tabIndex = on ? 0 : -1; if (on && focus) x.focus(); });
+  }
+  async function submitTask() {
+    const f = U.task; if (!f || f.busy) return;
+    const inp = $('#pl-task-in'); if (inp) f.value = inp.value;
+    f.busy = true; f.err = ''; paintPos();
+    const r = await D.addTask(f.project, f.value, f.owner);
+    f.busy = false;
+    if (!r.ok) { f.err = r.error; paintPos(); const i = $('#pl-task-in'); if (i) i.focus(); return; }
+    U.task = null;
+    flash(f.project);
+    setNotice({ ok: true, text: '로드맵에 넣었어요 · ' + f.project + (r.label ? ' ' + r.label : '') + ' 끝' + (r.where === 'last' ? ' (지금 단계가 없어서 마지막 단계에)' : '') }, OK_MS);
+    const b = $('.pl-taskb[data-p="' + cssq(f.project) + '"]'); if (b) b.focus({ preventScroll: true });
+  }
+  function hasDraft() {
+    const inp = $('#pl-in'), ed = $('.pl-edit'), mk = $('#pl-mk-in'), tk = $('#pl-task-in');
+    return !!((inp && inp.value.trim()) || (ed && ed.value.trim() !== ed.defaultValue.trim()) || (mk && mk.value.trim()) || (tk && tk.value.trim()));
+  }
+  async function autoRefresh() {
+    if (!U.el || !U.el.isConnected || !D.state.loaded || U.drag || U.ddOpen || U.editing != null || U.mk || U.task || hasDraft()) return false;
+    const st = D.status().kind; if (st === 'pending' || st === 'saving' || st === 'conflict' || st === 'error') return false;
+    const before = D.sig();
+    await D.load(U.handle, { test: !!U.opts.test });
+    if (!U.el.isConnected || D.sig() === before) return false;
+    if (U.drag || U.ddOpen || U.editing != null || U.mk || U.task || hasDraft()) { paintPos(); return true; }
+    drawAll();
+    return true;
+  }
+  async function refresh() {
+    if (!U.el) return;
+    await D.flush();
+    U.mk = null; U.task = null; U.editing = null; U.ddOpen = false;
+    await render(U.el, U.handle, U.opts);
   }
 
   function hl(text, q) {
@@ -293,7 +406,13 @@
       if (act === 'retry') D.save();
       else if (act === 'force') D.save(true);
       else if (act === 'reload-discard') D.reloadDiscard().then(drawAll);
-      else if (act === 'reload') { D.flush(); render(U.el, U.handle, U.opts); }
+      else if (act === 'mk-open') { if (U.mk) closeMk(true); else openMk(); }
+      else if (act === 'mk-ok') submitMk();
+      else if (act === 'mk-cancel') closeMk(true);
+      else if (act === 'task-open') openTask(b.dataset.p);
+      else if (act === 'own') pickOwner(b.dataset.own, true);
+      else if (act === 'task-ok') submitTask();
+      else if (act === 'task-cancel') closeTask(true);
       else if (act === 'focus') { U.focus = b.dataset.col; saveFocus(); el.querySelectorAll('.pl-seg button').forEach((x) => x.setAttribute('aria-checked', String(x.dataset.col === U.focus))); if (U.ddOpen) paintDD(); }
       else if (act === 'add') addRaw($('#pl-in').value);
       else if (act === 'chk') doToggle(id, b.getAttribute('aria-checked') !== 'true');
@@ -328,7 +447,26 @@
       dd.onmousedown = (e) => { e.preventDefault(); };
       dd.onclick = (e) => { const o = e.target.closest('[data-row]'); if (o) pickRow(U.ddRows[+o.dataset.row]); };
     }
+    el.oninput = (e) => {
+      const f = e.target.id === 'pl-mk-in' ? U.mk : e.target.id === 'pl-task-in' ? U.task : null;
+      if (!f) return;
+      f.value = e.target.value;
+      if (f.err) { f.err = ''; const m = e.target.parentNode.querySelector('.pl-addmsg'); if (m) m.remove(); e.target.removeAttribute('aria-invalid'); }
+    };
     el.onkeydown = (e) => {
+      const fm = e.target.closest && (e.target.closest('.pl-addpj') || e.target.closest('.pl-p .pl-add'));
+      if (fm && !e.isComposing) {
+        const mk = fm.classList.contains('pl-addpj');
+        const pill = e.target.closest('.pl-whos .pl-who');
+        if (pill && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].indexOf(e.key) >= 0) {
+          e.preventDefault();
+          const all = [...fm.querySelectorAll('.pl-whos .pl-who')], i = all.indexOf(pill), d = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1;
+          pickOwner(all[(i + d + all.length) % all.length].dataset.own, true);
+        }
+        else if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); if (mk) submitMk(); else submitTask(); }
+        else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (mk) closeMk(true); else closeTask(true); }
+        return;
+      }
       const ed = e.target.closest && e.target.closest('.pl-edit');
       if (ed) { if (e.key === 'Enter') { e.preventDefault(); commitEdit(ed, true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); commitEdit(ed, false); } return; }
       const tab = e.target.closest && e.target.closest('#pl-view [role="tab"]');
@@ -406,6 +544,6 @@
     doMove(d.id, d.col, d.col === '완료' ? null : d.index);
   }
 
-  const api = { render, state: U, DD_FOLD };
+  const api = { render, refresh, autoRefresh, hasDraft, state: U, DD_FOLD };
   root.POPlan = api;
 })(window);

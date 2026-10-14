@@ -11,7 +11,7 @@
 .st-name { display: inline-flex; align-items: center; background: var(--st-field); border: 1px solid transparent; border-radius: 9px; padding: 0 12px 0 0; height: 40px; min-width: 120px; cursor: text; transition: border-color .15s, background .15s; }
 .st-name:hover { background: #eef0f3; }
 .st-name:focus-within { background: #fff; border-color: var(--st-dark); }
-.st-name input { font: 700 15px var(--font); color: var(--st-ink); border: 0; outline: 0; background: none; padding: 0 2px 0 12px; height: 100%; width: 2.6em; min-width: 2.6em; max-width: 10.5em; }
+.st-name input { font: 700 15px var(--font); color: var(--st-ink); border: 0; outline: 0; background: none; padding: 0 2px 0 12px; height: 100%; width: 2.6em; min-width: 2.6em; max-width: 16em; }
 .st-name input::placeholder { color: var(--st-faint); font-weight: 400; }
 .st-tail { font-size: 15px; color: var(--st-sub); white-space: nowrap; user-select: none; }
 .st-name .st-tail { margin-left: -2px; }
