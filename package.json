@@ -1,7 +1,7 @@
 {
   "name": "pixel-office",
   "productName": "Pixel Office",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "픽셀 사무실 데스크톱 앱 (Pixel Office)",
   "license": "SEE LICENSE IN LICENSE",

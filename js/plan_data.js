@@ -2,6 +2,7 @@
   'use strict';
   const FS = root.POFS, C = root.POCore, P = root.POPlanMd;
   const PJ_ROOT = '10_프로젝트', GO = PJ_ROOT + '/01_진행', LIST = PJ_ROOT + '/프로젝트목록.md', SAVE_MS = 800;
+  const ORDER = PJ_ROOT + '/프로젝트순서.md';
   const ARCH = [['02_완료', '완료'], ['03_보류', '보류']];
   const DESC_SRC = { plan: '계획서 목표', roadmap: '로드맵 한 줄 목표', list: '프로젝트목록.md 한 줄 설명', none: '' };
 
@@ -10,6 +11,7 @@
     test: false,
     projects: [],
     descs: new Map(),
+    order: [],
     archive: { 완료: [], 보류: [] },
     todo: { path: P.PATH, doc: null, lastText: undefined, exists: false, ver: 0, savedVer: 0, saving: false, timer: null, status: { kind: 'idle' }, err: '' },
     notice: null,
@@ -106,16 +108,17 @@
     try { S.staff = C.parseRoster(demoOn() ? root.PODemo.ROSTER : (await FS.readText(S.handle, 'CLAUDE.md')).text).staff.map((x) => ({ name: x.name, key: x.key })); S.names = S.staff.map((x) => x.name); }
     catch (e) { S.staff = []; S.names = []; S.err += '명부(CLAUDE.md)를 못 읽었어요. '; }
     if (S.test) {
-      S.projects = await readTestProjects(); S.descs = new Map(); S.archive = { 완료: [], 보류: [] };
+      S.projects = await readTestProjects(); S.descs = new Map(); S.archive = { 완료: [], 보류: [] }; S.order = [];
     } else {
       let dirs = [];
       try { dirs = await FS.listDirs(S.handle, GO); } catch (e) { S.err += GO + ' 폴더를 못 읽었어요. '; }
-      const [pjs, descs, done, hold] = await Promise.all([
+      const [pjs, descs, done, hold, order] = await Promise.all([
         Promise.all(dirs.map(readProject)),
         FS.readText(S.handle, LIST).then((r) => parseProjectList(r.text), () => { if (root.PO_PUBLIC !== true) S.err += '프로젝트목록.md를 못 읽었어요(설명이 빠질 수 있어요). '; return new Map(); }),
         readArchive(ARCH[0][0]), readArchive(ARCH[1][0]),
+        FS.readText(S.handle, ORDER).then((r) => parseOrder(r.text), () => []),
       ]);
-      S.projects = pjs; S.descs = descs; S.archive = { 완료: done, 보류: hold };
+      S.projects = pjs; S.descs = descs; S.archive = { 완료: done, 보류: hold }; S.order = order;
     }
     await loadTodo();
     if (S.todo.err) S.err += '할일.md를 못 읽었어요: ' + S.todo.err + ' ';
@@ -124,8 +127,9 @@
     return S;
   }
 
+  const rank = (name) => { const i = S.order.indexOf(name); return i < 0 ? Infinity : i; };
   function projectsView() {
-    return S.projects.filter((p) => p.parsed).map((p) => {
+    return S.projects.filter((p) => p.parsed).map((p, i) => [rank(p.project), i, p]).sort((a, b) => (a[0] === b[0] ? a[1] - b[1] : a[0] - b[0])).map(([, , p]) => {
       const n = p.now;
       return {
         project: p.project,
@@ -133,7 +137,7 @@
         stageLabel: n.stageLabel,
         progress: n.progress,
         stageProgress: n.stageProgress,
-        cell: n.cell ? { line: n.cell.line, text: n.cell.text, short: n.cell.short, key: n.cell.key, label: C.cellLabel(p.parsed, n.cell), dangnee: n.cell.dangnee, inTodo: inTodo(p.project, n.cell) } : null,
+        cell: n.cell ? { line: n.cell.line, text: n.cell.text, short: n.cell.short, key: n.cell.key, label: C.cellLabel(p.parsed, n.cell), full: fullText(p.parsed, n.cell), dangnee: n.cell.dangnee, inTodo: inTodo(p.project, n.cell) } : null,
         segments: segmentsOf(p.parsed, n),
         owners: n.owners, ownerTurn: n.ownerTurn,
         goal: p.plan.goal, goalWhy: p.plan.goal ? '' : p.plan.why,
@@ -165,11 +169,17 @@
       if (!cs.length) return;
       const now = i === cur;
       const tick = sec.kind === 'stage' ? (now ? sec.stage + '단계' : String(sec.stage)) : sec.kind === 'later' ? '나중' : now ? sec.title : Array.from(sec.title)[0];
-      out.push({ title: sec.title, label: sec.kind === 'decide' ? '정할 것' : sec.label, tick, kind: sec.kind, n: cs.length, done: cs.filter((c) => c.done).length, now, later: sec.kind === 'later' });
+      const name = sec.kind === 'stage' ? sec.label : sec.kind === 'later' ? '나중에 할 일' : sec.kind === 'decide' ? '정할 것' : sec.title;
+      out.push({ title: sec.title, label: sec.kind === 'decide' ? '정할 것' : sec.label, name, tick, kind: sec.kind, n: cs.length, done: cs.filter((c) => c.done).length, now, later: sec.kind === 'later', cells: cellsOf(parsed, cs, n) });
     });
     const top = parsed.cells.filter((c) => c.section < 0);
-    if (top.length) out.unshift({ title: '', label: '', tick: '', kind: 'top', n: top.length, done: top.filter((c) => c.done).length, now: cur === -1, later: false });
+    if (top.length) out.unshift({ title: '', label: '', name: '맨 위', tick: '', kind: 'top', n: top.length, done: top.filter((c) => c.done).length, now: cur === -1, later: false, cells: cellsOf(parsed, top, n) });
     return out;
+  }
+  const cellsOf = (parsed, cs, n) => cs.map((c) => ({ text: fullText(parsed, c), done: c.done, top: !!(n.cell && n.cell.line === c.line), owners: c.owners }));
+  function fullText(parsed, cell) {
+    const t = C.itemShort(cell.text, Infinity);
+    return cell.parent == null ? t : C.itemShort(parsed.cells[cell.parent].text, 14) + ' › ' + t;
   }
   function lists() {
     if (!S.todo.doc) return { Today: [], Weekly: [], 완료: [] };
@@ -281,7 +291,25 @@
     return r.ok ? { where: r.where, label: r.label } : null;
   }
   function sig() {
-    return JSON.stringify([S.names, S.projects.map((p) => [p.raw, p.text || null, p.plan && p.plan.goal]), ARCH.map(([, k]) => (S.archive[k] || []).map((a) => [a.project, a.done, a.total, a.goal])), [...S.descs], S.todo.lastText, S.err]);
+    return JSON.stringify([S.names, S.projects.map((p) => [p.raw, p.text || null, p.plan && p.plan.goal]), ARCH.map(([, k]) => (S.archive[k] || []).map((a) => [a.project, a.done, a.total, a.goal])), [...S.descs], S.order, S.todo.lastText, S.err]);
+  }
+  function parseOrder(text) {
+    const out = [];
+    String(text || '').split(/\r?\n/).forEach((l) => { const m = /^\s*[-*]\s+(.+?)\s*$/.exec(l); if (m) { const n = m[1].normalize('NFC'); if (out.indexOf(n) < 0) out.push(n); } });
+    return out;
+  }
+  const orderText = (names) => '# 프로젝트순서\n\n프로젝트 관리 탭에서 바꾼 진행 프로젝트 순서(위가 먼저). 앱이 통째로 다시 쓴다. 여기 없는 진행 프로젝트는 맨 아래 폴더 이름순.\n\n' + names.map((n) => '- ' + n).join('\n') + '\n';
+  async function moveProject(name, to) {
+    if (!writable()) return false;
+    const names = projectsView().map((v) => v.project), from = names.indexOf(name);
+    if (from < 0) return false;
+    to = Math.max(0, Math.min(names.length - 1, to));
+    if (to === from) return true;
+    names.splice(from, 1); names.splice(to, 0, name);
+    const prev = S.order;
+    S.order = names; changed('order');
+    try { await FS.writeText(ORDER, orderText(names)); return true; }
+    catch (e) { S.order = prev; S.err += '프로젝트순서.md를 못 썼어요: ' + ((e && e.message) || e) + ' '; changed('order'); return false; }
   }
   function staffKey(name) { const x = S.staff.find((s) => s.name === name); return x ? x.key : null; }
 
@@ -329,6 +357,6 @@
   function status() { return writable() ? S.todo.status : { kind: 'readonly' }; }
   function flush() { return save(); }
 
-  Object.assign(api, { createProject, addTask, addWhere, ownerChoices, nameTaken, sig, TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
+  Object.assign(api, { ORDER, parseOrder, orderText, moveProject, createProject, addTask, addWhere, ownerChoices, nameTaken, sig, TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
   root.POPlanData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

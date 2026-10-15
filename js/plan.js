@@ -20,6 +20,10 @@
     mk: null,
     task: null,
     hl: null,
+    scrub: null,
+    ordering: false,
+    rowDrag: null,
+    barMs: false,
   };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (sel) => U.el && U.el.querySelector(sel);
@@ -88,6 +92,7 @@
     if (why === 'status') { paintStatus(); return; }
     if (why === 'notice') { paintPos(); if (U.ddOpen) paintDD(); return; }
     if (why === 'edit') { paintBoard(); paintPos(); if (U.ddOpen) paintDD(); paintStatus(); return; }
+    if (why === 'order') { paintPos(); return; }
     if (why === 'projects') { const n = $('#pl-sum'); if (n) n.textContent = D.state.projects.length; paintPos(); if (U.ddOpen) paintDD(); return; }
   }
   function drawAll() {
@@ -108,7 +113,8 @@
         '<p class="pl-hint"><span class="lk"><i class="lk-dot"></i>로드맵 칸에서 고른 일 · 끝내면 그 칸도 같이 체크</span><span>카드를 끌어 칸을 옮기거나, 마우스를 올려 버튼으로</span></p></div>' +
       '<div class="pl-board" id="pl-board" role="tabpanel"></div>' +
       '<div class="pl-sec-h"><h3>진행 중인 프로젝트</h3><small id="pl-sum">' + sum + '</small><span class="turn" id="pl-turn"></span>' +
-        (canWrite() ? '<button class="pr-btn" data-act="mk-open" aria-expanded="' + !!U.mk + '" aria-controls="pl-mk">+ 새 프로젝트</button>' : '') + '</div>' +
+        (canWrite() ? '<button class="pr-btn" data-act="mk-open" aria-expanded="' + !!U.mk + '" aria-controls="pl-mk">+ 새 프로젝트</button>' : '') +
+        (canWrite() ? '<button class="pr-btn" data-act="ord-edit" aria-pressed="' + U.ordering + '">' + (U.ordering ? '순서 편집 끝' : '순서 편집') + '</button>' : '') + '</div>' +
       '<div id="pl-mk"></div>' +
       '<div class="pl-pos" id="pl-pos"></div>' +
       '<div class="pl-fold" id="pl-fold">' + foldHtml() + '</div>';
@@ -154,12 +160,76 @@
     const ed = e.querySelector('.pl-edit'); if (ed) { ed.focus(); ed.select(); }
   }
 
+  function flatCells(v) { const out = []; (v.segments || []).forEach((s, si) => (s.cells || []).forEach((c, k) => out.push({ si, k, s, c }))); return out; }
+  const nowIdx = (v) => flatCells(v).findIndex((x) => x.c.top);
+  function scrubOf(v) {
+    if (!U.scrub || U.scrub.project !== v.project) return null;
+    const f = flatCells(v); if (!f.length) return null;
+    const idx = Math.max(0, Math.min(f.length - 1, U.scrub.idx));
+    return Object.assign({ idx }, f[idx]);
+  }
+  const pct = (f) => (f * 100).toFixed(2) + '%';
   function bar(v) {
     const segs = v.segments || [];
     const now = segs.find((s) => s.now);
     const label = v.project + ' 전체 ' + v.progress.done + '/' + v.progress.total + (now ? ', 지금 ' + (now.label || now.tick) + ' ' + now.done + '/' + now.n : '');
-    return '<div class="pl-bar" role="img" aria-label="' + esc(label) + '">' + segs.map((s) => '<i class="' + [s.now ? 'now' : '', s.later ? 'later' : '', s.done === 0 ? 'f0' : '', s.done === s.n ? 'full' : ''].filter(Boolean).join(' ') + '" style="--n:' + s.n + ';--f:' + Math.round((s.done / s.n) * 100) + '%" title="' + esc((s.label || '맨 위') + ' ' + s.done + '/' + s.n) + '"></i>').join('') + '</div>' +
+    const sc = scrubOf(v), total = segs.reduce((a, s) => a + s.n, 0), at = sc ? sc.idx : Math.max(0, nowIdx(v));
+    return '<div class="pl-bar' + (sc ? ' scrub' : '') + (U.barMs ? ' ms' : '') + '" role="slider" tabindex="0" data-p="' + esc(v.project) + '" aria-label="' + esc(label + '. 핀을 끌면 칸 내용을 봐요') + '" aria-valuemin="1" aria-valuemax="' + total + '" aria-valuenow="' + (at + 1) + '">' +
+      segs.map((s, si) => '<i class="' + [s.now ? 'now' : '', s.later ? 'later' : '', s.done === 0 ? 'f0' : '', s.done === s.n ? 'full' : ''].filter(Boolean).join(' ') + '" style="--n:' + s.n + ';--f:' + Math.round((s.done / s.n) * 100) + '%"' + (sc ? '' : ' title="' + esc((s.label || '맨 위') + ' ' + s.done + '/' + s.n) + '"') + '>' +
+        (sc && sc.si === si ? '<s class="pl-sel" style="left:' + pct(sc.k / s.n) + ';width:' + pct(1 / s.n) + '"></s><u class="pl-pin" style="left:' + pct(U.scrub.frac != null ? U.scrub.frac : sc.k / s.n) + '"></u>' : '') + '</i>').join('') + '</div>' +
       '<div class="pl-ticks">' + segs.map((s) => '<span class="' + (s.now ? 'now' : '') + '" style="--n:' + s.n + '">' + esc(s.tick) + '</span>').join('') + '<em>' + v.progress.done + '/' + v.progress.total + '</em></div>';
+  }
+  function peekHtml(v, sc) {
+    const chip = sc.c.top ? '<span class="pl-chip now">지금 할 일</span>' : sc.c.done ? '<span class="pl-chip ok">끝남</span>' : '';
+    return '<div class="pl-top peek"><div class="lab">' + esc(sc.s.name || sc.s.label || '맨 위') + ' · ' + (sc.k + 1) + '/' + sc.s.n + '번째 칸</div>' +
+      '<p class="tx' + (sc.c.done ? ' done' : '') + '">' + esc(sc.c.text) + '</p><div class="act">' + chip + who(sc.c.owners, false) + '</div></div>';
+  }
+  const rowOf = (project) => U.el && Array.from(U.el.querySelectorAll('#pl-pos .pl-p')).find((r) => r.dataset.p === project);
+  function repaintRow(project) {
+    const row = rowOf(project), pv = D.projectsView(), i = pv.findIndex((x) => x.project === project);
+    if (!row || i < 0) return;
+    const a = document.activeElement, refocus = a && row.contains(a) && a.classList.contains('pl-bar');
+    row.outerHTML = posRow(pv[i], i, pv);
+    if (refocus) { const b = rowOf(project).querySelector('.pl-bar'); if (b) b.focus(); }
+  }
+  function setScrub(v, idx, frac) {
+    const f = flatCells(v); if (!f.length) return;
+    idx = Math.max(0, Math.min(f.length - 1, idx));
+    if (U.scrub && U.scrub.project === v.project && U.scrub.idx === idx) return;
+    U.scrub = { project: v.project, idx, frac: frac == null ? null : frac };
+    repaintRow(v.project);
+  }
+  function clearScrub(project) { if (U.scrub && U.scrub.project === project) { U.scrub = null; repaintRow(project); } }
+  function scrubAt(v, x) {
+    const row = rowOf(v.project), b = row && row.querySelector('.pl-bar'); if (!b) return;
+    let base = 0, best = null;
+    b.querySelectorAll(':scope > i').forEach((el, si) => {
+      const r = el.getBoundingClientRect(), n = v.segments[si].n;
+      const d = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+      const f = Math.max(0, Math.min(1, (x - r.left) / r.width));
+      if (!best || d < best.d) best = { d, f, idx: base + Math.min(n - 1, Math.floor(f * n)) };
+      base += n;
+    });
+    if (!best) return;
+    const same = U.scrub && U.scrub.project === v.project && U.scrub.idx === best.idx;
+    if (same) { U.scrub.frac = best.f; const pin = b.querySelector('.pl-pin'); if (pin) pin.style.left = pct(best.f); return; }
+    setScrub(v, best.idx, best.f);
+  }
+  function startScrub(barEl, e) {
+    e.preventDefault(); U.barMs = true;
+    const v = D.projectsView().find((x) => x.project === barEl.dataset.p); if (!v) return;
+    document.body.classList.add('pl-scrubbing');
+    const move = (ev) => scrubAt(v, ev.clientX);
+    const up = () => {
+      root.removeEventListener('pointermove', move);
+      document.body.classList.remove('pl-scrubbing');
+      if (U.scrub && U.scrub.project === v.project && U.scrub.frac != null) { U.scrub.frac = null; if (U.scrub.idx !== nowIdx(v)) repaintRow(v.project); }
+      if (U.scrub && U.scrub.project === v.project && U.scrub.idx === nowIdx(v)) clearScrub(v.project);
+      const r = rowOf(v.project), b = r && r.querySelector('.pl-bar'); if (b) b.focus({ preventScroll: true });
+    };
+    root.addEventListener('pointermove', move);
+    root.addEventListener('pointerup', up, { once: true });
+    scrubAt(v, e.clientX);
   }
   function descHtml(v, cls) {
     cls = cls || 'pl-goal';
@@ -168,26 +238,36 @@
   const taskBtn = (v) => (canWrite() ? '<button class="pl-taskb" data-act="task-open" data-p="' + esc(v.project) + '" aria-expanded="' + !!(U.task && U.task.project === v.project) + '">+ 할 일</button>' : '');
   const rowCls = (v) => 'pl-p' + (U.hl === v.project ? ' hl' : '');
   const formOf = (v) => (U.task && U.task.project === v.project ? taskFormHtml(v) : '');
-  function posRow(v) {
-    const left = '<div><h5>' + esc(v.project) + '</h5>' + descHtml(v) + '</div>';
+  function nameHtml(v, i, n) {
+    if (!canWrite() || i == null) return '<h5>' + esc(v.project) + '</h5>';
+    const P = esc(v.project), b = (to, fk, txt, lab) => '<button data-act="ord" data-p="' + P + '" data-to="' + to + '" data-fk="' + fk + ':' + P + '" aria-label="' + esc(v.project) + ' ' + lab + '"' + (to < 0 || to >= n || to === i ? ' disabled' : '') + '>' + txt + '</button>';
+    return '<div class="pl-name"><button class="pl-grip" data-p="' + P + '" data-fk="grip:' + P + '" aria-label="' + P + ' 순서 옮기기 (끌거나 ↑↓ 키)" title="끌어서 순서 바꾸기"></button><h5>' + P + '</h5>' +
+      (U.ordering ? '<span class="pl-ord">' + b(0, 'top', '맨 위', '맨 위로') + b(i - 1, 'up', '↑', '위로') + b(i + 1, 'down', '↓', '아래로') + '</span>' : '') + '</div>';
+  }
+  function posRow(v, i, all) {
+    const left = '<div>' + nameHtml(v, i, all && all.length) + descHtml(v) + '</div>';
     if (v.state === 'empty' || v.state === 'done') {
       return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + '<div class="pl-stage"><b>' + (v.state === 'done' ? '다 끝남' : '칸 없음') + '</b></div><div class="pl-top">' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>' + formOf(v) + '</div>';
     }
     const stage = v.state === 'later' ? '단계 끝' : v.stageLabel;
-    const mid = '<div><div class="pl-stage"><b title="' + esc(stage) + '">' + esc(stage) + '</b>' + (v.state === 'now' ? '<small>지금 단계 남은 칸 ' + v.stageProgress.open + '/' + v.stageProgress.total + '</small>' : '') + '</div>' + bar(v) + '</div>';
+    const back = scrubOf(v) ? '<button class="pl-back" data-act="scrub-off" data-p="' + esc(v.project) + '">지금 할 일로</button>' : '';
+    const mid = '<div><div class="pl-stage"><b title="' + esc(stage) + '">' + esc(stage) + '</b>' + (back || (v.state === 'now' ? '<small><span class="w">지금 단계 </span>남은 칸 ' + v.stageProgress.open + '/' + v.stageProgress.total + '</small>' : '')) + '</div>' + bar(v) + '</div>';
     let right;
-    if (v.state === 'later') right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p>' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>';
+    const sc = scrubOf(v);
+    if (sc) right = peekHtml(v, sc);
+    else if (v.state === 'later') right = '<div class="pl-top"><div class="lab">지금 할 일</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p>' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>';
     else {
       const add = v.cell.inTodo ? '<span class="pl-inT">Today에 있음</span>' : canWrite() ? '<button data-act="add-top" data-p="' + esc(v.project) + '">+ Today</button>' : '';
-      right = '<div class="pl-top"><div class="lab">맨 위 칸</div><p title="' + esc(v.cell.text) + '">' + esc(v.cell.label) + '</p><div class="act">' + who(v.owners, v.ownerTurn) + taskBtn(v) + add + '</div></div>';
+      right = '<div class="pl-top"><div class="lab">지금 할 일</div><p class="tx">' + esc(v.cell.full) + '</p><div class="act">' + who(v.owners, v.ownerTurn) + taskBtn(v) + add + '</div></div>';
     }
     return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + mid + right + formOf(v) + '</div>';
   }
   function paintPos() {
     const e = $('#pl-pos'); if (!e) return;
     const fx = focusKey();
+    e.classList.toggle('ordering', U.ordering && canWrite());
     const pv = D.projectsView(), nm = D.noRoadmap();
-    const rows = pv.map(posRow);
+    const rows = pv.map((v, i) => posRow(v, i, pv));
     if (nm.length) rows.push('<div class="pl-nomap-h">로드맵 없음 ' + nm.length + '</div>' + nm.map((v) => '<div class="pl-p nomap" data-p="' + esc(v.project) + '"><h5>' + esc(v.project) + '</h5>' + descHtml(v) + '</div>').join(''));
     e.innerHTML = rows.length ? rows.join('') : '<p class="pl-empty dark">' + (canWrite() ? '진행 중인 프로젝트가 아직 없어요. 오른쪽 위 [+ 새 프로젝트]로 만들어 보세요.' : '진행 중인 프로젝트 폴더를 못 읽었어요.') + '</p>';
     restoreFocus(fx);
@@ -423,6 +503,9 @@
       else if (act === 'edit') { U.editing = id; paintBoard(); }
       else if (act === 'old-done') { U.oldDone = true; paintBoard(); }
       else if (act === 'add-top') { if (U.view !== '진행') U.view = '진행'; D.addTop(b.dataset.p, 'Today'); }
+      else if (act === 'scrub-off') clearScrub(b.dataset.p);
+      else if (act === 'ord-edit') { U.ordering = !U.ordering; b.setAttribute('aria-pressed', String(U.ordering)); b.textContent = U.ordering ? '순서 편집 끝' : '순서 편집'; paintPos(); }
+      else if (act === 'ord') moveTo(b.dataset.p, +b.dataset.to);
       else if (act === 'view') { setView(b.dataset.view); const t = $('#pl-view [aria-selected="true"]'); if (t) t.focus(); }
     };
     const inp = $('#pl-in'), dd = $('#pl-dd');
@@ -471,6 +554,21 @@
       if (ed) { if (e.key === 'Enter') { e.preventDefault(); commitEdit(ed, true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); commitEdit(ed, false); } return; }
       const tab = e.target.closest && e.target.closest('#pl-view [role="tab"]');
       if (tab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); setView(U.view === '진행' ? '완료' : '진행'); const t = $('#pl-view [aria-selected="true"]'); if (t) t.focus(); return; }
+      if (e.target.classList && e.target.classList.contains('pl-grip') && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const i = D.projectsView().findIndex((x) => x.project === e.target.dataset.p);
+        if (i >= 0) moveTo(e.target.dataset.p, i + (e.key === 'ArrowUp' ? -1 : 1));
+        return;
+      }
+      if (e.key === 'Escape' && U.rowDrag) { endRowDrag(false); return; }
+      if (e.target.classList && e.target.classList.contains('pl-bar')) {
+        const v = D.projectsView().find((x) => x.project === e.target.dataset.p); if (!v) return;
+        const cur = U.scrub && U.scrub.project === v.project ? U.scrub.idx : Math.max(0, nowIdx(v)), last = flatCells(v).length - 1;
+        const to = { ArrowLeft: cur - 1, ArrowDown: cur - 1, ArrowRight: cur + 1, ArrowUp: cur + 1, Home: 0, End: last }[e.key];
+        if (to != null) { e.preventDefault(); U.barMs = false; e.target.classList.remove('ms'); setScrub(v, to); }
+        else if (e.key === 'Escape' && U.scrub) { e.preventDefault(); clearScrub(v.project); }
+        return;
+      }
       const card = e.target.classList && e.target.classList.contains('pl-card') ? e.target : null;
       if (e.key === 'Escape' && U.drag) { cancelDrag(); return; }
       if (!card || !e.altKey || !canWrite()) return;
@@ -485,7 +583,54 @@
     el.onpointerdown = onDown;
   }
 
+  async function moveTo(project, to) {
+    const ok = await D.moveProject(project, to);
+    if (!ok) drawAll();
+  }
+  const posRows = () => Array.from(U.el.querySelectorAll('#pl-pos > .pl-p:not(.nomap)'));
+  function startRowDrag(grip, e) {
+    e.preventDefault();
+    const row = grip.closest('.pl-p');
+    U.rowDrag = { project: grip.dataset.p, row, y0: e.clientY, on: false, ins: null, to: null };
+    root.addEventListener('pointermove', onRowMove);
+    root.addEventListener('pointerup', onRowUp, { once: true });
+  }
+  function onRowMove(e) {
+    const d = U.rowDrag; if (!d) return;
+    if (!d.on) {
+      if (Math.abs(e.clientY - d.y0) < DRAG_PX) return;
+      d.on = true; d.row.classList.add('ghost'); document.body.classList.add('pl-dragging');
+      d.ins = document.createElement('div'); d.ins.className = 'pl-ins pl-row-ins';
+    }
+    if (e.clientY < 60 || e.clientY > root.innerHeight - 60) {
+      let sc = d.row.parentElement; while (sc && sc !== document.body && !(sc.scrollHeight > sc.clientHeight && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      const dy = e.clientY < 60 ? -14 : 14;
+      if (sc && sc !== document.body) sc.scrollBy(0, dy); else root.scrollBy(0, dy);
+    }
+    const others = posRows().filter((r) => r !== d.row);
+    let to = others.findIndex((r) => { const b = r.getBoundingClientRect(); return e.clientY < b.top + b.height / 2; });
+    if (to < 0) to = others.length;
+    d.to = to;
+    if (to < others.length) others[to].before(d.ins); else others[others.length - 1].after(d.ins);
+  }
+  function endRowDrag(commit) {
+    const d = U.rowDrag; U.rowDrag = null;
+    root.removeEventListener('pointermove', onRowMove);
+    root.removeEventListener('pointerup', onRowUp);
+    document.body.classList.remove('pl-dragging');
+    if (!d) return;
+    if (d.ins) d.ins.remove();
+    d.row.classList.remove('ghost');
+    if (d.on) U.clickGuard = Date.now() + 250;
+    if (commit && d.on && d.to != null) moveTo(d.project, d.to);
+  }
+  function onRowUp() { endRowDrag(true); }
+
   function onDown(e) {
+    const sb = e.button === 0 && e.target.closest('#pl-pos .pl-bar');
+    if (sb) { startScrub(sb, e); return; }
+    const gr = e.button === 0 && canWrite() && e.target.closest('#pl-pos .pl-grip');
+    if (gr) { startRowDrag(gr, e); return; }
     if (e.button !== 0 || !canWrite()) return;
     const card = e.target.closest('.pl-card');
     if (!card || e.target.closest('button, input') || card.closest('.pl-col.done')) return;
