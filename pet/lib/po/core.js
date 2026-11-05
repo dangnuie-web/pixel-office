@@ -297,10 +297,44 @@
     return w ? '당니님' : 'other';
   }
 
+  function roadmapKind(v) {
+    const t = String(v || '').replace(/\*\*|__/g, '').trim();
+    if (/^(개발\s*[·・,/+&와및]?\s*운영|운영\s*[·・,/+&와및]?\s*개발)/.test(t)) return 'both';
+    if (/^운영/.test(t)) return 'ops';
+    return 'dev';
+  }
+  const kindIn = (kind, tab) => (tab === '운영' ? kind === 'ops' || kind === 'both' : tab === '개발' ? kind !== 'ops' : true);
+  function stageKindOf(line) {
+    const m = STAGE_RE.exec(String(line).trim());
+    if (!m) return null;
+    let name = m[2].replace(/\s*←\s*지금.*$/, '').replace(/\*\*|__/g, '');
+    const re = /\s*[(（]([^()（）]*)[)）]\s*$/;
+    for (let g = 0; g < 5; g++) {
+      const p = re.exec(name);
+      if (!p) break;
+      const v = p[1].trim();
+      if (v === '개발') return 'dev';
+      if (v === '운영') return 'ops';
+      name = name.slice(0, p.index);
+    }
+    return null;
+  }
+  const hasStageKinds = (parsed) => parsed.sections.some((s) => s.tabKind);
+  function parsedForTab(parsed, tab) {
+    if ((tab !== '개발' && tab !== '운영') || !hasStageKinds(parsed)) return parsed;
+    const cells = parsed.cells.filter((c) => kindIn(c.tabKind, tab));
+    return Object.assign({}, parsed, { cells, all: parsed.cells, done: cells.filter((c) => c.done).length, total: cells.length });
+  }
+  function roadmapInTab(parsed, tab) {
+    if (tab !== '개발' && tab !== '운영') return true;
+    if (!parsed.cells.length) return kindIn(parsed.kind, tab);
+    return parsed.cells.some((c) => kindIn(c.tabKind, tab));
+  }
   function parseRoadmapCells(text, names) {
     names = names || [];
     const lines = String(text || '').split(/\r?\n/);
-    const out = { goal: '', planLine: null, sections: [], cells: [], placeholders: [], unread: [], done: 0, total: 0 };
+    const out = { goal: '', planLine: null, kind: 'dev', sections: [], cells: [], placeholders: [], unread: [], done: 0, total: 0 };
+    let kindSeen = false;
     let fence = null, sec = -1, group = null, goalNext = false;
     const stack = [];
     const secKind = () => (sec < 0 ? 'top' : out.sections[sec].kind);
@@ -317,7 +351,7 @@
           const st = parseStageTitle(t);
           const title = hm[2].replace(/\*\*|__/g, '').trim();
           if (!st && /^\d+\s*단계/.test(title)) out.unread.push({ line: no, text: t, why: '단계 제목 모양이 아님 (## N단계 — 이름)' });
-          out.sections.push(st ? { title, kind: 'stage', stage: st.n, label: st.label, now: st.now, line: no } : { title, kind: sectionKind(title), stage: null, label: title, now: false, line: no });
+          out.sections.push(st ? { title, kind: 'stage', stage: st.n, label: st.label, now: st.now, line: no, tabKind: stageKindOf(t) } : { title, kind: sectionKind(title), stage: null, label: title, now: false, line: no, tabKind: null });
           sec = out.sections.length - 1;
         }
         if (!out.goal && /^(\*\*)?한\s*줄\s*목표(\*\*)?\s*[:：]?$/.test(hm[2])) goalNext = true;
@@ -330,6 +364,8 @@
         if (g && g[1].trim() && !out.goal) out.goal = g[1].replace(/\s*(\*\*|__)$/, '').trim();
         const p = plain.match(/^(?:\*\*|__)?\s*계획서\s*(?:\*\*|__)?\s*[:：]\s*(?:\*\*|__)?\s*(.*)$/);
         if (p && out.planLine == null) out.planLine = p[1].trim();
+        const k = plain.match(/^(?:\*\*|__)?\s*구분\s*(?:\*\*|__)?\s*[:：]\s*(?:\*\*|__)?\s*(.*)$/);
+        if (k && !kindSeen) { kindSeen = true; out.kind = roadmapKind(k[1]); }
       }
       if (/^(\*\*|__)/.test(t)) {
         const g = /^(?:\*\*|__)(.+?)(?:\*\*|__)/.exec(t);
@@ -350,16 +386,18 @@
         i: out.cells.length, line: no, indent: c.indent, mark: c.mark, done: c.done, text: c.text, short: itemShort(c.text), key: planKey(c.text),
         section: sec, sectionKind: secKind(), label: sObj ? sObj.label : '', group,
         parent, owners: o ? o.names : [], ownerUnknown: o ? o.unknown : [], hasOwner: !!o, dangnee: null,
+        tabKind: null,
       };
       cell.dangnee = dangneeKind(cell, o ? { first: firstOwnerWord(c.text) } : null);
       out.cells.push(cell);
       stack.push({ indent: c.indent, i: cell.i });
     }
+    out.cells.forEach((c) => { c.tabKind = (c.section >= 0 && out.sections[c.section].tabKind) || out.kind; });
     return out;
   }
   function cellLabel(parsed, cell, n) {
     if (cell.parent == null) return cell.short;
-    const p = parsed.cells[cell.parent];
+    const p = (parsed.all || parsed.cells)[cell.parent];
     return itemShort(p.text, 14) + ' › ' + itemShort(cell.text, n || ITEM_SHORT);
   }
 
@@ -368,7 +406,8 @@
     const laterOpen = open.filter((c) => c.sectionKind === 'later').length;
     const res = { state: 'done', cell: null, stageLabel: '', owners: [], ownerTurn: false, progress: { done: parsed.done, total: parsed.total }, stageProgress: { open: 0, total: 0 }, laterOpen };
     if (!parsed.total) { res.state = 'empty'; return res; }
-    const cur = open.find((c) => c.sectionKind !== 'later');
+    const mark = parsed.sections.findIndex((s, i) => s.now && parsed.cells.some((c) => c.section === i));
+    const cur = (mark >= 0 && open.find((c) => c.section === mark)) || open.find((c) => c.sectionKind !== 'later');
     if (!cur) {
       if (laterOpen) { res.state = 'later'; res.stageLabel = '단계 끝 · 나중에 할 일 ' + laterOpen + '개'; }
       return res;
@@ -515,11 +554,12 @@
     const bad = s.match(/[\\/:*?"<>|\u0000-\u001f\u007f]/);
     if (bad) return { ok: false, error: '폴더 이름에 못 쓰는 글자가 있어요. \\ / : * ? " < > | 는 빼 주세요.' };
     if (/^\./.test(s)) return { ok: false, error: '점(.)으로 시작하는 이름은 숨김 폴더가 돼서 못 써요.' };
+    if (s === '개발' || s === '운영' || s === '운영중') return { ok: false, error: "'개발'·'운영'·'운영중'은 프로젝트를 묶는 폴더 이름이라 못 써요." };
     if (/\.$/.test(s)) return { ok: false, error: '점(.)으로 끝나는 이름은 못 써요.' };
     if (WIN_DEVICE_NAME.test(s) || /^_to_delete$/i.test(s) || /^[^.~]{1,7}~\d{1,7}(\.[^.]{1,3})?$/.test(s) || /\.(pem|key)$/i.test(s) || /^id_rsa/i.test(s)) return { ok: false, error: '컴퓨터가 따로 쓰는 이름이라 못 써요. 다른 이름으로 해 주세요.' };
     return { ok: true, name: s };
   }
-  function roadmapSkeleton(name) { return '# ' + name + ' 로드맵\n\n한 줄 목표:\n\n## 1단계 — 시작\n\n'; }
+  function roadmapSkeleton(name, kind) { return '# ' + name + ' 로드맵\n\n한 줄 목표:\n' + (kind === '운영' ? '구분: 운영\n' : '') + '\n## 1단계 — 시작\n\n'; }
   const TASK_MAX = 120;
   function cleanTask(v) {
     const s = String(v == null ? '' : v).normalize('NFC').replace(/\s+/g, ' ').trim();
@@ -1008,7 +1048,7 @@
     spotKind, breakSlot, breakSeed, seededShuffle, hashStr, firstFreeTile, assignBreak, assignBreakFor, breakPeopleOf,
     parseRoster, readRoster, parseProgress, sortRecent, findLatestBrief, compute, buildBriefing, compareValues, sameValues,
     topOpenItem, parseOwners, itemShort, roadmapSeats,
-    PLAN_KEY_LEN, ROADMAP_MISS, cellOf, isPlaceholder, parseStageTitle, planKey, parseRoadmapCells, cellLabel, roadmapNow,
+    PLAN_KEY_LEN, ROADMAP_MISS, cellOf, isPlaceholder, parseStageTitle, planKey, parseRoadmapCells, roadmapKind, kindIn, stageKindOf, parsedForTab, roadmapInTab, cellLabel, roadmapNow,
     POSTIT_TITLE_MAX, textWidth, postitTitle,
     planPathOf, planGoalOf, suggestInitial, suggestSearch, planTodoLine, roadmapMark, checkRoadmapCell, isCheckOnlyChange,
     PROJECT_NAME_MAX, TASK_MAX, cleanProjectName, roadmapSkeleton, cleanTask, roadmapAddLine, isAddLineChange,

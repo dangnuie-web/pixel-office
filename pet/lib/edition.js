@@ -2,8 +2,8 @@
 const BUILT_PUBLIC = true;
 
 const EDITIONS = {
-  dangnee: { key: 'dangnee', name: 'Pixel Office Pet', userDataDir: 'Pixel Office Pet', appId: 'com.dangnee.pixeloffice.pet' },
-  public: { key: 'public', name: 'Pixel Office Pet', userDataDir: 'Pixel Office Pet', appId: 'com.dangnee.pixeloffice.pet' },
+  dangnee: { key: 'dangnee', name: 'Pixel Office Pet', userDataDir: 'Pixel Office Pet', appId: 'com.dangnee.pixeloffice.pet', petScale: 0.75 },
+  public: { key: 'public', name: 'Pixel Office Pet', userDataDir: 'Pixel Office Pet', appId: 'com.dangnee.pixeloffice.pet', petScale: 0.75 },
 };
 
 function features(pub) { return { lecture: !pub, house: !pub }; }

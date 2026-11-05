@@ -77,8 +77,9 @@
     return '<div class="pr-modal" role="dialog" aria-modal="true"><div class="pr-mbox id-view c-' + Math.max(0, IDEA_COLS.indexOf(it.status)) + '">' +
       '<h3>' + esc(p.title) + ' <small>' + esc(it.date) + '</small></h3>' +
       '<div class="id-vmeta">' + (it.kind ? '<span class="id-kind">' + esc(it.kind) + '</span>' : '') + '<span class="id-vst">' + esc(it.status) + '</span></div>' +
+      '<div class="id-vbody">' +
       (p.desc ? '<p class="id-vdesc">' + br(p.desc) + '</p>' : '') +
-      (it.memo ? '<div class="id-vmemo"><span>메모</span><p>' + br(it.memo) + '</p></div>' : '') +
+      (it.memo ? '<div class="id-vmemo"><span>메모</span><p>' + br(it.memo) + '</p></div>' : '') + '</div>' +
       '<div class="pr-mbtns"><span></span><button type="button" class="pr-btn" data-act="m-cancel">닫기</button>' +
       (writable() ? '<button type="button" class="pr-btn primary" data-act="idea-edit" data-i="' + S.modal.i + '">편집</button>' : '') + '</div></div></div>';
   }
@@ -152,11 +153,14 @@
       (S.modal ? (S.modal.kind === 'view' ? viewHtml(ideas) : modalHtml(ideas)) : '');
     bind();
     const first = el.querySelector('.pr-modal [data-k^="m:"]') || el.querySelector('.id-view [data-act=idea-edit]'); if (first) first.focus();
+    const vb = el.querySelector('.id-vbody');
+    if (vb) { const fade = () => vb.classList.toggle('more', vb.scrollTop + vb.clientHeight < vb.scrollHeight - 2); fade(); vb.onscroll = fade; }
   }
 
   function bind() {
     const el = S.el;
     el.onclick = (e) => {
+      if (S.modal && S.modal.kind === 'view' && e.target.classList.contains('pr-modal')) { S.modal = null; draw(); return; }
       const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
       const act = b.dataset.act, path = b.dataset.path;
       if (act === 'retry') { save(path); return; }

@@ -29,7 +29,7 @@ const SKILLS = [
     body: "# 프롬프트 조합\n틀 파일 모양(앱 조합틀 책과 같음):\n- 첫 줄 \"태그: …, 조합틀\"\n- \"## 틀\" 아래 ``` 로 감싼 프롬프트, 칸은 {{칸 이름}}\n- \"## 칸\" 아래 \"### 칸 이름\"마다 \"- 값 이름 = 실제 값\" 줄. \"기본: 값 이름\", \"비워도 됨\", \"설명: …\" 줄을 둘 수 있다\n- \"## 저장한 조합\" 아래 \"- 조합 이름 = 칸: 값 / 칸: 값\"\n\n하는 일:\n1. 틀 목록이 필요하면 40_자산/자료/프롬프트/ 에서 태그에 조합틀이 있는 md 를 찾는다.\n2. 사용자가 고른 값을 끼운다. 고르지 않은 칸은 \"기본:\" 값, 없으면 첫 값. 목록에 없는 말은 그대로 넣는다.\n3. 여러 값을 고르면 모든 짝을 만든다. 30장이 넘으면 앞 30장만 내고 알린다.\n4. 기본은 대화창에 출력만. \"저장해줘\"일 때만 그 틀 파일 \"## 저장한 조합\" 아래 한 줄을 더한다(다른 줄은 고치지 않는다).\n5. 점검: {{칸}}이 ## 칸에 없거나, ## 틀에 ``` 가 없으면 알려 준다.\n\n## 부르는 말\n```\n고양이 조합틀로 주인공만 바꿔서 세 장\n```\n" + COMMON },
 ];
 
-const LEFT_OUT = ['lecture-list-update', 'predeploy-check', 'run-tests', 'sync-assets'];
+const LEFT_OUT = ['content-list-update', 'predeploy-check', 'run-tests', 'sync-assets'];
 
 function skillMd(s) {
   return '---\nname: ' + s.folder + '\ndescription: ' + JSON.stringify(s.desc) + '\n---\n\n' + s.body;

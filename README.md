@@ -482,7 +482,7 @@ a cozy pixel office, warm light, top view
 바탕화면을 돌아다니며 Pixel Office 사무실의 할 일과 약속을 말주머니로 알려 주는 **다람쥐 비서 펫**이에요.
 펫 이름은 사무실 명부의 다람쥐 직원 이름이에요(안 정했으면 "비서").
 
-![바탕화면의 Pixel Office Pet](img/guide/17_펫바탕화면.gif)
+![바탕화면의 Pixel Office Pet](img/guide/20_펫바탕화면.gif)
 
 - 받기
   - 맥: **[Pixel-Office-Pet-mac-arm64.dmg 받기](../../releases/latest/download/Pixel-Office-Pet-mac-arm64.dmg)** (애플 칩 맥, macOS 13 이후)
@@ -508,19 +508,19 @@ a cozy pixel office, warm light, top view
 
 **약속 적기 → 알림**: 다람쥐를 누르고 **[약속]**에 날짜·시간·내용을 적으면 사무실 `10_프로젝트/약속.md`에 한 줄 들어가요. 전날 밤 9시와 1시간 전에 말주머니로 알려 줘요.
 
-![약속 적기와 1시간 전 알림](img/guide/18_펫약속적기.gif)
+![약속 적기와 1시간 전 알림](img/guide/21_펫약속적기.gif)
 
 **색 뽑기**: 오른쪽 클릭 > **색 뽑기** → 화면에서 원하는 곳을 누르면 그 자리 색 코드(HEX)가 복사돼요. 바로 붙여 넣으면 돼요.
 
-![색 뽑기](img/guide/19_펫색뽑기.gif)
+![색 뽑기](img/guide/22_펫색뽑기.gif)
 
 **아이디어 한 줄**: 다람쥐를 누르고 적은 뒤 **Enter** → `10_프로젝트/아이디어보관함.md` 맨 위에 한 줄.
 
-![아이디어 한 줄 적기](img/guide/20_펫아이디어메모.gif)
+![아이디어 한 줄 적기](img/guide/23_펫아이디어메모.gif)
 
 **레퍼런스 보내기**: 그림 파일을 다람쥐 위로 끌어다 놓고 주제를 고르면 `40_자산/레퍼런스/<주제>/`로 원래 이름 그대로 옮겨요.
 
-![그림을 레퍼런스로 보내기](img/guide/21_펫레퍼런스.gif)
+![그림을 레퍼런스로 보내기](img/guide/24_펫레퍼런스.gif)
 
 </details>
 

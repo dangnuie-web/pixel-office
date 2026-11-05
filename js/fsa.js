@@ -5,14 +5,14 @@
     /^CLAUDE\.md$/,
     /^10_프로젝트\/아이디어보관함\.md$/,
     /^10_프로젝트\/프로젝트목록\.md$/,
-    /^10_프로젝트\/(01_진행|02_완료|03_보류)\/[^/]+\/로드맵\.md$/,
+    /^10_프로젝트\/(01_진행|02_완료|03_보류)\/(?:(?:개발|운영중?)\/)?[^/]+\/로드맵\.md$/,
     /^10_프로젝트\/약속\.md$/,
     /^10_프로젝트\/할일\.md$/,
     /^10_프로젝트\/프로젝트순서\.md$/,
-    /^10_프로젝트\/01_진행\/[^/]+\/계획서\.md$/,
-    /^10_프로젝트\/01_진행\/pixel-office\/개발\/직원신호\.json$/,
-    /^10_프로젝트\/01_진행\/pixel-office\/기획\/시험자료\/20260930_pixel-office_(진행현황시험본_v01|부록A시험줄_v01)\.md$/,
-    /^10_프로젝트\/01_진행\/pixel-office\/기획\/시험자료\/20261008_pixel-office_(할일시험본_v01|로드맵시험본_v01)\.md$/,
+    /^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?[^/]+\/계획서\.md$/,
+    /^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?pixel-office\/개발\/직원신호\.json$/,
+    /^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?pixel-office\/기획\/시험자료\/20260930_pixel-office_(진행현황시험본_v01|부록A시험줄_v01)\.md$/,
+    /^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?pixel-office\/기획\/시험자료\/20261008_pixel-office_(할일시험본_v01|로드맵시험본_v01)\.md$/,
   ];
   const IMG_EXT = /\.(png|jpe?g|gif|webp|avif|svg)$/i;
   const FONT_EXT = /\.(otf|ttf|woff2?)$/i;
@@ -22,7 +22,7 @@
     /^40_자산\/픽셀\/[^/]+\.json$/,
     /^00_운영\/도구\/스킬표\.json$/,
     /^00_운영\/도구\/[^/]+\/사용법\.md$/,
-    /^(00_운영\/정리\/작업지시서_(이름점검|컴퓨터정리)|10_프로젝트\/01_진행\/강의\/작업지시서_(블로그제작|원고작성))\.md$/,
+    /^(00_운영\/정리\/작업지시서_(이름점검|컴퓨터정리)|10_프로젝트\/01_진행\/운영중?\/콘텐츠\/작업지시서_(블로그제작|원고작성))\.md$/,
   );
   const ALLOW_ASSET = [
     (p) => /^40_자산\/아이콘\/[^/]+\/[^/]+$/.test(p) && IMG_EXT.test(p),
@@ -32,6 +32,7 @@
   ];
   const ALLOW_LIST_DIRS = [
     /^10_프로젝트\/(01_진행|02_완료|03_보류)$/,
+    /^10_프로젝트\/(01_진행|02_완료|03_보류)\/(개발|운영중?)$/,
     /^40_자산\/자료\/(프롬프트|워크플로우)$/, /^40_자산\/아이콘$/, /^40_자산\/아이콘\/[^/]+$/, /^40_자산\/폰트\/(영문|한글)$/, /^40_자산\/낙서$/, /^40_자산\/레퍼런스(\/.+)?$/,
     /^40_자산\/픽셀$/,
   ];
@@ -41,9 +42,9 @@
     /^10_프로젝트\/약속\.md$/,
     /^00_운영\/도구\/스킬표\.json$/,
   ];
-  const ALLOW_ROADMAP_CHECK = [/^10_프로젝트\/01_진행\/[^/]+\/로드맵\.md$/];
+  const ALLOW_ROADMAP_CHECK = [/^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?[^/]+\/로드맵\.md$/];
   const ALLOW_NEW = [/^40_자산\/픽셀\/\d{8}_픽셀_[^/]+_v\d{2,}\.json$/];
-  const ALLOW_NEW_ROADMAP = [/^10_프로젝트\/01_진행\/[^/]+\/로드맵\.md$/];
+  const ALLOW_NEW_ROADMAP = [/^10_프로젝트\/01_진행\/(?:(?:개발|운영중?)\/)?[^/]+\/로드맵\.md$/];
 
   function segmentsOk(path) {
     const segs = path.split('/');
@@ -121,6 +122,27 @@
     return type && f.type !== type ? new File([f], f.name, { type, lastModified: f.lastModified }) : f;
   }
   function listDirs(handle, path) { return listEntries(handle, path, 'directory'); }
+  const PJ_GROUPS = ['개발', '운영', '운영중'];
+  const isGroup = (name) => PJ_GROUPS.includes(String(name).normalize('NFC'));
+  async function listProjectDirs(handle, base) {
+    const top = await listDirs(handle, base);
+    const out = [];
+    for (const raw of top) {
+      if (!isGroup(raw)) { out.push(raw); continue; }
+      let sub = [];
+      try { sub = await listDirs(handle, base + '/' + raw); } catch (e) { sub = []; }
+      sub.forEach((s) => out.push(raw + '/' + s));
+    }
+    return out;
+  }
+  const projectName = (rel) => String(rel).split('/').pop().normalize('NFC');
+  const PO_DIRS = ['10_프로젝트/01_진행/운영중/pixel-office', '10_프로젝트/01_진행/운영/pixel-office', '10_프로젝트/01_진행/개발/pixel-office', '10_프로젝트/01_진행/pixel-office'];
+  const poRels = (sub) => PO_DIRS.map((d) => d + '/' + sub);
+  async function readTextFirst(handle, rels) {
+    let err = null;
+    for (const p of rels) { try { const r = await readText(handle, p); return Object.assign({}, r, { path: p }); } catch (e) { err = e; } }
+    throw err || new Error('읽을 자리가 없어요');
+  }
   async function exists(handle, path, kind) {
     if (!allowed(path, 'exist')) deny(path, 'exist');
     const parts = path.split('/');
@@ -234,5 +256,5 @@
     if (root.POPlat) root.POPlat.markHtml();
   }
 
-  root.POFS = { allowed, readText, listNames, listDirs, listAll, readBytes, readBlob, IMG_EXT, FONT_EXT, exists, isOfficeFolder, saveHandle, loadHandle, permission, pick, writeText, writeRoadmapCheck, writeNew, writeNewRoadmap, writeRoadmapAdd };
+  root.POFS = { allowed, readText, listNames, listDirs, listAll, readBytes, readBlob, IMG_EXT, FONT_EXT, exists, isOfficeFolder, saveHandle, loadHandle, permission, pick, writeText, writeRoadmapCheck, writeNew, writeNewRoadmap, writeRoadmapAdd, listProjectDirs, projectName, PJ_GROUPS, PO_DIRS, poRels, readTextFirst };
 })(typeof window !== 'undefined' ? window : globalThis);

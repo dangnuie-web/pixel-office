@@ -4,6 +4,7 @@
   const PJ_ROOT = '10_프로젝트', GO = PJ_ROOT + '/01_진행', LIST = PJ_ROOT + '/프로젝트목록.md', SAVE_MS = 800;
   const ORDER = PJ_ROOT + '/프로젝트순서.md';
   const ARCH = [['02_완료', '완료'], ['03_보류', '보류']];
+  const TABS = ['개발', '운영', '완료', '보류'];
   const DESC_SRC = { plan: '계획서 목표', roadmap: '로드맵 한 줄 목표', list: '프로젝트목록.md 한 줄 설명', none: '' };
 
   const S = {
@@ -24,7 +25,7 @@
   const notFound = (e) => e && (e.name === 'NotFoundError' || /없음|not ?found|ENOENT/i.test(e.message || ''));
 
   async function readProject(raw) {
-    const project = raw.normalize('NFC'), dir = GO + '/' + raw;
+    const project = FS.projectName(raw), dir = GO + '/' + raw;
     const p = { project, raw, dir, roadmapPath: dir + '/로드맵.md', parsed: null, now: null, plan: { path: null, goal: '', why: '로드맵 없음' } };
     let text;
     try { text = (await FS.readText(S.handle, p.roadmapPath)).text; } catch (e) { return p; }
@@ -61,12 +62,12 @@
   async function readArchive(sub) {
     const path = PJ_ROOT + '/' + sub;
     let dirs = [];
-    try { dirs = await FS.listDirs(S.handle, path); } catch (e) { S.err += path + ' 폴더를 못 읽었어요. '; return []; }
+    try { dirs = await FS.listProjectDirs(S.handle, path); } catch (e) { S.err += path + ' 폴더를 못 읽었어요. '; return []; }
     const out = await Promise.all(dirs.map(async (raw) => {
-      const a = { project: raw.normalize('NFC'), goal: '', done: 0, total: 0, hasRoadmap: false };
+      const a = { project: FS.projectName(raw), goal: '', done: 0, total: 0, hasRoadmap: false, parsed: null, now: null };
       try {
         const r = C.parseRoadmapCells((await FS.readText(S.handle, path + '/' + raw + '/로드맵.md')).text, S.names);
-        Object.assign(a, { goal: r.goal, done: r.done, total: r.total, hasRoadmap: true });
+        Object.assign(a, { goal: r.goal, done: r.done, total: r.total, hasRoadmap: true, parsed: r, now: C.roadmapNow(r) });
       } catch (e) {  }
       return a;
     }));
@@ -76,19 +77,19 @@
     const f = S.todo;
     if (f.doc && (f.ver !== f.savedVer || f.saving || f.status.kind === 'conflict' || f.status.kind === 'error')) return;
     f.err = '';
-    try { const r = demoOn() ? { text: root.PODemo.TODO } : await FS.readText(S.handle, f.path); f.lastText = r.text; f.exists = true; f.doc = P.parse(r.text, projectNames()); }
+    try { const r = demoOn() ? { text: root.PODemo.TODO } : S.test ? await FS.readTextFirst(S.handle, FS.poRels(TEST_TODO_SUB)) : await FS.readText(S.handle, f.path); if (S.test && r.path) f.path = r.path; f.lastText = r.text; f.exists = true; f.doc = P.parse(r.text, projectNames()); }
     catch (e) {
       if (notFound(e)) { f.lastText = null; f.exists = false; f.doc = P.parse(P.template(), projectNames()); }
       else { f.doc = null; f.err = (e && e.message) || String(e); }
     }
     f.ver = f.savedVer = 0;
   }
-  const TEST_ROADMAPS = '10_프로젝트/01_진행/pixel-office/기획/시험자료/20261008_pixel-office_로드맵시험본_v01.md';
+  const TEST_ROADMAPS_SUB = '기획/시험자료/20261008_pixel-office_로드맵시험본_v01.md', TEST_ROADMAPS = FS.poRels(TEST_ROADMAPS_SUB)[0];
   async function readTestProjects() {
     let text = '';
     const demo = demoOn();
     if (demo) text = root.PODemo.ROADMAPS;
-    else try { text = (await FS.readText(S.handle, TEST_ROADMAPS)).text; } catch (e) { S.err += '시험자료 로드맵 예시를 못 읽었어요. '; return []; }
+    else try { text = (await FS.readTextFirst(S.handle, FS.poRels(TEST_ROADMAPS_SUB))).text; } catch (e) { S.err += '시험자료 로드맵 예시를 못 읽었어요. '; return []; }
     const parts = root.PODemo.splitParts(text);
     return Array.from(parts.로드맵.keys()).sort((a, b) => a.localeCompare(b, 'ko')).map((name) => {
       const parsed = C.parseRoadmapCells(parts.로드맵.get(name).join('\n'), S.names);
@@ -98,7 +99,7 @@
     });
   }
   function projectNames() { return S.projects.map((p) => p.project); }
-  const TEST_TODO = '10_프로젝트/01_진행/pixel-office/기획/시험자료/20261008_pixel-office_할일시험본_v01.md';
+  const TEST_TODO_SUB = '기획/시험자료/20261008_pixel-office_할일시험본_v01.md', TEST_TODO = FS.poRels(TEST_TODO_SUB)[0];
   const demoOn = () => !!(S.test && root.PODemo && root.PODemo.on());
   async function load(handle, opts) {
     if (handle) S.handle = handle;
@@ -111,14 +112,16 @@
       S.projects = await readTestProjects(); S.descs = new Map(); S.archive = { 완료: [], 보류: [] }; S.order = [];
     } else {
       let dirs = [];
-      try { dirs = await FS.listDirs(S.handle, GO); } catch (e) { S.err += GO + ' 폴더를 못 읽었어요. '; }
+      try { dirs = await FS.listProjectDirs(S.handle, GO); } catch (e) { S.err += GO + ' 폴더를 못 읽었어요. '; }
       const [pjs, descs, done, hold, order] = await Promise.all([
         Promise.all(dirs.map(readProject)),
         FS.readText(S.handle, LIST).then((r) => parseProjectList(r.text), () => { if (root.PO_PUBLIC !== true) S.err += '프로젝트목록.md를 못 읽었어요(설명이 빠질 수 있어요). '; return new Map(); }),
         readArchive(ARCH[0][0]), readArchive(ARCH[1][0]),
         FS.readText(S.handle, ORDER).then((r) => parseOrder(r.text), () => []),
       ]);
-      S.projects = pjs; S.descs = descs; S.archive = { 완료: done, 보류: hold }; S.order = order;
+      const goNames = new Set(pjs.map((p) => p.project));
+      const notArchive = (a) => a.hasRoadmap || !goNames.has(a.project);
+      S.projects = pjs; S.descs = descs; S.archive = { 완료: done.filter(notArchive), 보류: hold.filter(notArchive) }; S.order = order;
     }
     await loadTodo();
     if (S.todo.err) S.err += '할일.md를 못 읽었어요: ' + S.todo.err + ' ';
@@ -128,9 +131,13 @@
   }
 
   const rank = (name) => { const i = S.order.indexOf(name); return i < 0 ? Infinity : i; };
-  function projectsView() {
-    return S.projects.filter((p) => p.parsed).map((p, i) => [rank(p.project), i, p]).sort((a, b) => (a[0] === b[0] ? a[1] - b[1] : a[0] - b[0])).map(([, , p]) => {
-      const n = p.now;
+  function projectsView(tab) {
+    return S.projects.filter((p) => p.parsed && (!tab || C.roadmapInTab(p.parsed, tab))).map((p, i) => [rank(p.project), i, p]).sort((a, b) => (a[0] === b[0] ? a[1] - b[1] : a[0] - b[0])).map(([, , p]) => viewOf(p, tab));
+  }
+  function viewOf(p0, tab) {
+      const fp = tab ? C.parsedForTab(p0.parsed, tab) : p0.parsed;
+      const p = fp === p0.parsed ? p0 : Object.assign({}, p0, { parsed: fp, now: C.roadmapNow(fp) });
+      const n = p.now, plan = p.plan || { goal: '', why: '' };
       return {
         project: p.project,
         state: n.state,
@@ -140,18 +147,27 @@
         cell: n.cell ? { line: n.cell.line, text: n.cell.text, short: n.cell.short, key: n.cell.key, label: C.cellLabel(p.parsed, n.cell), full: fullText(p.parsed, n.cell), dangnee: n.cell.dangnee, inTodo: inTodo(p.project, n.cell) } : null,
         segments: segmentsOf(p.parsed, n),
         owners: n.owners, ownerTurn: n.ownerTurn,
-        goal: p.plan.goal, goalWhy: p.plan.goal ? '' : p.plan.why,
-        ...descOf(p.project, p.plan.goal, p.parsed.goal),
+        goal: plan.goal, goalWhy: plan.goal ? '' : plan.why,
+        ...descOf(p.project, plan.goal, p.parsed.goal),
         unread: p.parsed.unread,
+        kind: p.parsed.kind,
+        readonly: !!p.readonly,
       };
-    });
+  }
+  function archiveView(k) {
+    return (S.archive[k] || []).filter((a) => a.parsed).map((a) => viewOf({ project: a.project, parsed: a.parsed, now: a.now, readonly: true }));
+  }
+  function archiveNoRoadmap(k) { return (S.archive[k] || []).filter((a) => !a.parsed).map((a) => Object.assign({ project: a.project }, descOf(a.project, '', ''))); }
+  function tabCounts() {
+    const go = (t) => S.projects.filter((p) => (p.parsed ? C.roadmapInTab(p.parsed, t) : t === '개발')).length;
+    return { 개발: go('개발'), 운영: go('운영'), 완료: (S.archive.완료 || []).length, 보류: (S.archive.보류 || []).length };
   }
   function descOf(project, planGoal, roadmapGoal) {
     const list = S.descs.get(project) || '';
     const src = planGoal ? 'plan' : roadmapGoal ? 'roadmap' : list ? 'list' : 'none';
     return { desc: planGoal || roadmapGoal || list || '', descSrc: src, descTitle: DESC_SRC[src] };
   }
-  function noRoadmap() { return S.projects.filter((p) => !p.parsed).map((p) => Object.assign({ project: p.project }, descOf(p.project, '', ''))); }
+  function noRoadmap(tab) { if (tab === '운영') return []; return S.projects.filter((p) => !p.parsed).map((p) => Object.assign({ project: p.project }, descOf(p.project, '', ''))); }
   function archive() {
     const out = {};
     ARCH.forEach(([, k]) => { out[k] = S.archive[k].map((a) => Object.assign({ project: a.project, done: a.done, total: a.total, hasRoadmap: a.hasRoadmap }, descOf(a.project, '', a.goal))); });
@@ -179,10 +195,10 @@
   const cellsOf = (parsed, cs, n) => cs.map((c) => ({ text: fullText(parsed, c), done: c.done, top: !!(n.cell && n.cell.line === c.line), owners: c.owners }));
   function fullText(parsed, cell) {
     const t = C.itemShort(cell.text, Infinity);
-    return cell.parent == null ? t : C.itemShort(parsed.cells[cell.parent].text, 14) + ' › ' + t;
+    return cell.parent == null ? t : C.itemShort((parsed.all || parsed.cells)[cell.parent].text, 14) + ' › ' + t;
   }
   function lists() {
-    if (!S.todo.doc) return { Today: [], Weekly: [], 완료: [] };
+    if (!S.todo.doc) return { Today: [], 'Someday': [], 완료: [] };
     const L = P.lists(S.todo.doc), out = {};
     Object.keys(L).forEach((k) => { out[k] = L[k].map((it) => ({ id: it.id, text: it.text, project: it.project, key: it.key, done: it.done, date: it.date, from: it.from, linked: !!it.key })); });
     return out;
@@ -243,19 +259,24 @@
     for (const [, k] of ARCH) if ((S.archive[k] || []).some((a) => sameName(a.project, name))) return k + ' 목록에 같은 이름이 있어요.';
     return '';
   }
-  async function createProject(input) {
+  async function createProject(input, tab) {
     if (!writable()) return { ok: false, error: S.test ? '시연 보기에서는 만들지 않아요.' : '데스크톱 앱에서만 만들 수 있어요.' };
     const c = C.cleanProjectName(input);
     if (!c.ok) return c;
     const taken = nameTaken(c.name);
     if (taken) return { ok: false, error: taken + ' 다른 이름으로 해 주세요.' };
-    const path = GO + '/' + c.name + '/로드맵.md';
-    try { await FS.writeNewRoadmap(path, C.roadmapSkeleton(c.name)); }
+    const grouped = S.projects.some((p) => /\//.test(String(p.raw)));
+    const tops = S.projects.map((p) => String(p.raw).split('/')[0].normalize('NFC'));
+    const opsDir = tops.includes('운영중') ? '운영중' : tops.includes('운영') ? '운영' : '운영중';
+    const grp = tab === '운영' ? opsDir : '개발';
+    const raw = grouped ? grp + '/' + c.name : c.name;
+    const path = GO + '/' + raw + '/로드맵.md';
+    try { await FS.writeNewRoadmap(path, C.roadmapSkeleton(c.name, grouped ? (tab === '운영' ? '운영' : '개발') : '')); }
     catch (e) {
       if (e && e.code === 'EEXIST') return { ok: false, error: '같은 이름의 폴더가 이미 있어요. 다른 이름으로 해 주세요.' };
       return { ok: false, error: '못 만들었어요: ' + ((e && e.message) || e) };
     }
-    const p = await readProject(c.name);
+    const p = await readProject(raw);
     S.projects = S.projects.filter((x) => x.project !== p.project).concat([p]).sort((a, b) => a.raw.localeCompare(b.raw, 'ko'));
     changed('projects');
     return { ok: true, project: p.project };
@@ -299,13 +320,16 @@
     return out;
   }
   const orderText = (names) => '# 프로젝트순서\n\n프로젝트 관리 탭에서 바꾼 진행 프로젝트 순서(위가 먼저). 앱이 통째로 다시 쓴다. 여기 없는 진행 프로젝트는 맨 아래 폴더 이름순.\n\n' + names.map((n) => '- ' + n).join('\n') + '\n';
-  async function moveProject(name, to) {
+  async function moveProject(name, to, tab) {
     if (!writable()) return false;
-    const names = projectsView().map((v) => v.project), from = names.indexOf(name);
+    const all = projectsView().map((v) => v.project);
+    const sub = tab ? projectsView(tab).map((v) => v.project) : all.slice(), from = sub.indexOf(name);
     if (from < 0) return false;
-    to = Math.max(0, Math.min(names.length - 1, to));
+    to = Math.max(0, Math.min(sub.length - 1, to));
     if (to === from) return true;
-    names.splice(from, 1); names.splice(to, 0, name);
+    sub.splice(from, 1); sub.splice(to, 0, name);
+    let q = 0;
+    const names = tab ? all.map((n) => (sub.indexOf(n) >= 0 ? sub[q++] : n)) : sub;
     const prev = S.order;
     S.order = names; changed('order');
     try { await FS.writeText(ORDER, orderText(names)); return true; }
@@ -357,6 +381,6 @@
   function status() { return writable() ? S.todo.status : { kind: 'readonly' }; }
   function flush() { return save(); }
 
-  Object.assign(api, { ORDER, parseOrder, orderText, moveProject, createProject, addTask, addWhere, ownerChoices, nameTaken, sig, TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
+  Object.assign(api, { TABS, archiveView, archiveNoRoadmap, tabCounts, ORDER, parseOrder, orderText, moveProject, createProject, addTask, addWhere, ownerChoices, nameTaken, sig, TEST_TODO, TEST_ROADMAPS, LIST, parseProjectList, noRoadmap, archive, load, projectsView, lists, suggestions, add, addTop, toggle, move, update, remove, restore, staffKey, save, flush, reloadDiscard, status, writable, today, checkRoadmap });
   root.POPlanData = api;
 })(typeof window !== 'undefined' ? window : globalThis);

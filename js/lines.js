@@ -42,13 +42,15 @@
   const POINT = {
     '토리': '#F2C641', teacher: '#2FB35A', critic: '#D65A4E', 'blog-editor': '#962A57',
     planner: '#F5A3C0', 'scenario-writer': '#8452D0', designer: '#D03CC6', developer: '#86CFF5', organizer: '#1FA39C',
+    fox: '#D9A042',
   };
   const SPRITE = {
     '토리': 'tori_idle', teacher: 'bana_idle', critic: 'dochi_idle', 'blog-editor': 'monggeul_idle',
     planner: 'ttukttak_idle', 'scenario-writer': 'bugi_idle', designer: 'munui_idle', developer: 'bit_idle', organizer: 'ori_idle',
+    fox: 'fox_idle',
   };
 
-  const PORTRAITS = new Set(['tori', 'bana', 'bit', 'bugi', 'monggeul', 'munui', 'ori', 'dochi', 'ttukttak', 'avatar']);
+  const PORTRAITS = new Set(['tori', 'bana', 'bit', 'bugi', 'monggeul', 'munui', 'ori', 'dochi', 'ttukttak', 'avatar', 'fox']);
   function portraitSrc(spriteKey) { const base = spriteKey && spriteKey.replace(/_idle$/, ''); if (!base || !PORTRAITS.has(base)) return null; if (root.PO_PUBLIC === true && base === 'avatar') return null; return 'assets/portraits/' + base + '.png'; }
 
   const PUB = root.POCore && root.POCore.PUBLIC_STAFF;

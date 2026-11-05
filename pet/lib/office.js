@@ -22,12 +22,19 @@ function makeOffice(officeRoot) {
   function mtime(rel) { try { return fs.statSync(resolveSafe(rel)).mtimeMs; } catch (e) { return null; } }
   function list(rel) { return fs.readdirSync(resolveSafe(rel)).filter((n) => !n.startsWith('.')); }
 
+  const GROUPS = ['개발', '운영', '운영중'];
   function projectNames() {
+    const dirsIn = (rel) => list(rel).filter((n) => { try { return fs.statSync(resolveSafe(rel + '/' + n)).isDirectory(); } catch (e) { return false; } });
     try {
-      return list(PROJECTS_REL).filter((n) => { try { return fs.statSync(resolveSafe(PROJECTS_REL + '/' + n)).isDirectory(); } catch (e) { return false; } }).sort();
+      const out = [];
+      dirsIn(PROJECTS_REL).forEach((n) => {
+        if (!GROUPS.includes(n.normalize('NFC'))) { out.push(n); return; }
+        try { dirsIn(PROJECTS_REL + '/' + n).forEach((x) => out.push(n + '/' + x)); } catch (e) {  }
+      });
+      return out.sort();
     } catch (e) { return []; }
   }
-  function roadmapRels() { return projectNames().map((p) => ({ project: p, rel: PROJECTS_REL + '/' + p + '/로드맵.md' })).filter((r) => mtime(r.rel) != null); }
+  function roadmapRels() { return projectNames().map((p) => ({ project: p.split('/').pop(), rel: PROJECTS_REL + '/' + p + '/로드맵.md' })).filter((r) => mtime(r.rel) != null); }
   function fingerprint() { return roadmapRels().map((r) => r.rel + '@' + mtime(r.rel)).join('|'); }
   let namesCache = null, namesKey = null;
   function names() {

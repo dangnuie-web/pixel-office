@@ -621,14 +621,14 @@
     const none = (d.topics || []).filter((x) => !x.manus.length).map((x) => x.topic);
     const mmdd = (f) => f.date ? f.date.slice(4, 6) + '/' + f.date.slice(6) : '';
     const v2 = (f) => 'v' + String(f.ver).padStart(2, '0');
-    const rows = d.topics == null ? '<div class="dk-empty"><span>읽는 중…</span></div>' : !list.length ? '<div class="dk-empty"><span>강의 원고가 없어요.</span></div>' :
+    const rows = d.topics == null ? '<div class="dk-empty"><span>읽는 중…</span></div>' : !list.length ? '<div class="dk-empty"><span>콘텐츠 원고가 없어요.</span></div>' :
       list.map((x, i) => '<div class="dk-rec pick' + (i === d.sel ? ' sel' : '') + '" data-pi="' + i + '"><span class="tm">' + esc(mmdd(x.f)) + '</span><span class="tx" title="' + esc(x.f.name) + '"><b>' + esc(x.topic) + '</b> · 원고 ' + v2(x.f) + (x.blog ? '<span class="r">블로그 ' + v2(x.blog) + ' 있음</span>' : '') + '</span></div>').join('') +
       (none.length ? '<div class="dk-rec dim"><span></span><span class="tx" title="' + esc(none.join('·')) + '">원고가 아직 없는 주제 ' + none.length + '개 (' + esc(none.join('·')) + ')</span></div>' : '');
     el.querySelector('.pw-title').textContent = s.name + ' 책상 · 원고 고르기';
     const note = el.querySelector('.dk-note');
-    note.innerHTML = '<div class="dk-head"><span class="face"></span><span class="pw-big">' + (d.topics == null ? '?' : list.length) + '</span><span class="pw-unit">개</span><span class="cap">강의 원고 · 주제마다 최신 판</span></div><div class="dk-list">' + rows + '</div>';
+    note.innerHTML = '<div class="dk-head"><span class="face"></span><span class="pw-big">' + (d.topics == null ? '?' : list.length) + '</span><span class="pw-unit">개</span><span class="cap">콘텐츠 원고 · 주제마다 최신 판</span></div><div class="dk-list">' + rows + '</div>';
     note.querySelector('.dk-head .face').replaceWith(spriteCanvas(s.key));
-    const ft = el.querySelectorAll('.pw-foot span'); if (ft.length === 2) { ft[0].textContent = 'Esc 돌아가기'; ft[1].textContent = '10_프로젝트/01_진행/강의/*/원고'; }
+    const ft = el.querySelectorAll('.pw-foot span'); if (ft.length === 2) { ft[0].textContent = 'Esc 돌아가기'; ft[1].textContent = '10_프로젝트/01_진행/운영/콘텐츠/콘텐츠목록/*/01_블로그/*/원고'; }
     note.querySelectorAll('[data-pi]').forEach((r) => r.addEventListener('click', (ev) => { ev.stopPropagation(); d.sel = +r.dataset.pi; drawPicking(); }));
     drawDrawer();
     const sel = note.querySelector('.dk-rec.sel'); if (sel && sel.scrollIntoView) sel.scrollIntoView({ block: 'nearest' });

@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, screen, Menu, shell, nativeImage, desktopCapturer, systemPreferences, clipboard } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, Menu, Tray, shell, nativeImage, desktopCapturer, systemPreferences, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -15,6 +15,7 @@ const DEV = process.env.TP_DEV === '1';
 const HOUSE_DIR = process.env.TP_HOUSE || null;
 const PL = require('./lib/platform');
 const pixelOfficeApp = () => PL.findPixelOffice({ platform: process.platform, home: HOME, env: process.env, pub: PUB });
+const TR = !PUB && process.platform === 'darwin' ? require('./lib/tray') : null;
 
 const { makeOffice } = require('./lib/office');
 const { makeFence } = require('./lib/fence');
@@ -41,12 +42,13 @@ const CHOICE = {
   memoBand: true,
 };
 
-const SCALE = 4;
-const STAND_PT = 109;
+const PET_SCALE = EDITION.petScale || 1;
+const SCALE = Math.max(1, Math.round(4 * PET_SCALE));
+const STAND_PT = 109 * PET_SCALE;
 const PIXELATED = process.env.TP_PIXELATED === '1';
 const BUBBLE_ROOM = 146;
 let WIN_W = 300, WIN_H = 230;
-const RANGE = 170;
+const RANGE = Math.round(170 * PET_SCALE);
 const SPEED = 38;
 const CHECK_MS = DEV ? 3000 : 20000;
 const PERIODIC_MS = 30 * 60 * 1000;
@@ -313,14 +315,15 @@ function showMenu() {
   st.menu = menu;
   menu.popup({ window: pet, callback: () => { st.menu = null; } });
 }
-function hideForAWhile() {
+function hideForAWhile() { hidePet(false); }
+function hidePet(forever) {
   st.hidden = true; clearTimeout(st.modeTimer); clearInterval(st.walkTimer); st.walkTimer = null;
   if (viewer && !viewer.isDestroyed()) viewer.close();
   if (pickWin && !pickWin.isDestroyed()) pickWin.close();
   closeMemo(); endColor();
   pet.hide();
   clearTimeout(st.hideTimer);
-  st.hideTimer = setTimeout(() => showAgain(), HIDE_MS);
+  st.hideTimer = forever ? null : setTimeout(() => showAgain(), HIDE_MS);
 }
 function showAgain(line) {
   clearTimeout(st.hideTimer); st.hideTimer = null;
@@ -335,6 +338,26 @@ function reopened() {
   const was = st.hidden;
   if (was) showAgain(HD.reopenLine(true)); else say(HD.reopenLine(false), { now: true });
   return was;
+}
+
+let tray = null;
+function trayState() { return { petHidden: st.hidden, dubuRunning: TR.dubuPids().length > 0, dubuApp: TR.findMacApp(TR.DUBU, HOME), poApp: pixelOfficeApp(), houseApp: TR.findMacApp(TR.HOUSE, HOME) }; }
+function trayMenu() {
+  const s = trayState();
+  const act = {
+    showPet: () => showAgain(), hidePet: () => hidePet(true),
+    dubuOn: () => TR.startApp(s.dubuApp), dubuOff: () => TR.stopDubu(),
+    openPo: () => shell.openPath(s.poApp), openHouse: () => shell.openPath(s.houseApp),
+    quitAll: () => { TR.stopDubu(); app.quit(); },
+  };
+  return Menu.buildFromTemplate(TR.items(s).map((it) => (it.type ? { type: it.type } : { label: it.label, enabled: it.enabled !== false, click: act[it.action] })));
+}
+function createTray() {
+  if (!TR || tray) return;
+  tray = new Tray(TR.iconPath(ROOT));
+  tray.setToolTip(EDITION.name);
+  const pop = () => tray.popUpContextMenu(trayMenu());
+  tray.on('click', pop); tray.on('right-click', pop);
 }
 
 const VW = 460, VH = 560;
@@ -425,18 +448,18 @@ function openMemo() {
   memoWin.on('closed', () => { memoWin = null; st.memo = false; savePos(); if (st.queue.length && !st.talking) talkNext(); else if (!st.talking && !st.drag) setMode('idle', rand(1500, 3000)); });
 }
 function closeMemo() { if (memoWin && !memoWin.isDestroyed()) memoWin.close(); }
-const MEMO_TO = { idea: '아이디어보관함', lecture: '강의소재.md' };
+const MEMO_TO = { idea: '아이디어보관함', lecture: '소재.md' };
 function saveMemo(kind, text) {
   if (!M.KINDS[kind] || !MEMO_KINDS.includes(kind) || typeof text !== 'string' || text.length > 2000) return { ok: false, why: '이상한 입력' };
   const ymd = todayYmd();
   let r;
   try { r = fence().writeMemo(kind, text, ymd); } catch (e) { r = { ok: false, why: e.message, shape: false }; }
-  if (r.ok) { st.memoDraft.text = ''; closeMemo(); say('적어 뒀어요!\n' + (kind === 'idea' ? '아이디어보관함 맨 위에 한 줄' : '강의소재.md에 한 줄'), { now: true, ms: 2500 }); return r; }
+  if (r.ok) { st.memoDraft.text = ''; closeMemo(); say('적어 뒀어요!\n' + (kind === 'idea' ? '아이디어보관함 맨 위에 한 줄' : '소재.md에 한 줄'), { now: true, ms: 2500 }); return r; }
   if (r.why === '빈 메모') return r;
   try { keepPending(kind, text, ymd, r.why); }
   catch (e) { return { ok: false, why: '임시 보관도 못 했어요: ' + e.message, keepOpen: true }; }
   st.memoDraft.text = ''; closeMemo();
-  if (r.shape) say((kind === 'idea' ? '보관함' : '강의소재.md') + '에는 못 적었어요\n표 모양이 달라서요. 앱에 맡겨 뒀으니 사라지지 않아요', { now: true });
+  if (r.shape) say((kind === 'idea' ? '보관함' : '소재.md') + '에는 못 적었어요\n표 모양이 달라서요. 앱에 맡겨 뒀으니 사라지지 않아요', { now: true });
   else say('못 적었어요\n' + r.why + '. 쓴 글은 앱에 맡겨 뒀어요', { now: true });
   return r;
 }
@@ -722,7 +745,7 @@ function createPet() {
   lockDown(pet);
   pet.loadFile(path.join(ROOT, 'pet', 'index.html'));
   pet.webContents.once('did-finish-load', () => {
-    send('pet:init', Object.assign(init, { winW: WIN_W, winH: WIN_H }));
+    send('pet:init', Object.assign(init, { winW: WIN_W, winH: WIN_H, petScale: PET_SCALE }));
     send('pet:pose', { mode: st.mode, dir: st.dir });
     placeWindow();
     pet.showInactive();
@@ -762,6 +785,9 @@ function devTools() {
       else if (c.do === 'viewer') { openViewer(c.kind); out('ok'); }
       else if (c.do === 'hide') { hideForAWhile(); out(stateOut()); }
       else if (c.do === 'reopen') { const was = reopened(); setTimeout(() => out({ wasHidden: was, hidden: st.hidden, visible: pet.isVisible(), timer: !!st.hideTimer, queue: st.queue, talking: st.talking }), 300); }
+      else if (c.do === 'tray') { out(tray ? { on: true, items: TR.items(trayState()) } : { on: false }); }
+      else if (c.do === 'trayHide') { hidePet(true); out({ hidden: st.hidden, timer: !!st.hideTimer, visible: pet.isVisible(), items: TR ? TR.items(trayState()) : null }); }
+      else if (c.do === 'trayShow') { showAgain(); out({ hidden: st.hidden, visible: pet.isVisible() }); }
       else if (c.do === 'closeMenu') { if (st.menu) st.menu.closePopup(pet); out('ok'); }
       else if (c.do === 'closeViewer') { if (viewer) viewer.close(); out('ok'); }
       else if (c.do === 'mode') { if (c.mode === 'walk') walk(); else setMode(c.mode); out('ok'); }
@@ -803,6 +829,7 @@ useOffice(resolveOffice());
 app.whenReady().then(() => {
   if (process.platform === 'darwin' && app.dock) app.dock.hide();
   createPet();
+  createTray();
 });
 app.on('second-instance', () => reopened());
 app.on('window-all-closed', (e) => {  });

@@ -3,7 +3,7 @@ const N = require('./names');
 
 const KINDS = {
   idea: { label: '아이디어', rel: '10_프로젝트/아이디어보관함.md', header: ['날짜', '아이디어', '종류', '상태', '메모'], row: (d, t) => [d, t, '미분류', '대기', N.values().memoTag] },
-  lecture: { label: '강의 소재', rel: '10_프로젝트/01_진행/강의/강의소재.md', header: ['날짜', '소재', '메모'], row: (d, t) => [d, t, N.values().memoTag] },
+  lecture: { label: '콘텐츠 소재', rel: '10_프로젝트/01_진행/운영/콘텐츠/콘텐츠목록/소재.md', rels: ['10_프로젝트/01_진행/운영중/콘텐츠/콘텐츠목록/소재.md', '10_프로젝트/01_진행/운영/콘텐츠/콘텐츠목록/소재.md'], header: ['날짜', '소재', '메모'], row: (d, t) => [d, t, N.values().memoTag] },
 };
 const MAX_LEN = 500;
 

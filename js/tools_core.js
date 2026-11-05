@@ -14,7 +14,7 @@
     clean: { ids: ['cleanup-scan'], icon: 6, name: '정리 점검', what: '중복·큰 파일·옛 버전·이름·개인정보 의심', btn: '정리 점검', list: true },
     names: { ids: ['name-check'], icon: 7, name: '이름 점검', what: '폴더·파일 이름 규칙 위반 후보', btn: '이름 점검', list: true },
     frame: { ids: ['blog-frame'], icon: 8, name: '블로그 틀', what: '원고를 골라 블로그 모양 틀을 만들어요', btn: '블로그 틀', input: 'manuscript' },
-    lecture: { ids: ['lecture-preview', 'lecture-write'], icon: 9, name: '강의목록 갱신', what: '통과한 원고를 강의목록 표에 한 줄 넣어요', btn: '강의목록 갱신', input: 'manuscript' },
+    lecture: { ids: ['lecture-preview', 'lecture-write'], icon: 9, name: '콘텐츠 목록 갱신', what: '통과한 원고를 콘텐츠 목록 표에 한 줄 넣어요', btn: '콘텐츠 목록 갱신', input: 'manuscript' },
     combo: { ids: [], icon: -1, name: '프롬프트 조합', local: true },
     shop: { ids: [], icon: 0, sprite: 'tool_icons_pixelshop', name: '픽셀 공방', local: true, workbench: true },
     testlist: { ids: ['test-list'], icon: 4, name: '시험 목록', hidden: true },
@@ -205,7 +205,7 @@
       const rel = path && toRel(path);
       const info = (String(out).match(/^(소제목.*)$/m) || [])[1] || '';
       const checks = String(out).split('\n').filter((l) => /^\s+확인:/.test(l)).map((l) => l.trim());
-      const html = rel ? rel.replace(/\.md$/, '') + '_미리보기.html' : null;
+      const html = rel ? previewOf(rel) : null;
       return { path, rel, name: fileName(path), info, checks, html };
     },
     lecture(out, err, ev, s) {
@@ -278,7 +278,7 @@
       case 'clean': return '후보 ' + r.total;
       case 'names': return '후보 ' + r.total;
       case 'frame': return r.name ? '틀 ' + r.name : '틀 만듦';
-      case 'lecture': return r.write ? (r.written ? '강의목록에 넣었어요' : r.exists ? '이미 목록에 있어요' : '끝남') : r.exists ? '이미 목록에 있어요' : r.row ? '넣을 줄 1' : '넣을 줄 없음';
+      case 'lecture': return r.write ? (r.written ? '콘텐츠 목록에 넣었어요' : r.exists ? '이미 목록에 있어요' : '끝남') : r.exists ? '이미 목록에 있어요' : r.row ? '넣을 줄 1' : '넣을 줄 없음';
       case 'blog': return '크롬에서 열림';
       case 'pixel': return r.n + '장';
       case 'proj': return r.n ? '다른 곳 ' + r.n : '맞음';
@@ -291,29 +291,54 @@
       default: return '';
     }
   }
+  function previewOf(rel) {
+    const parts = String(rel).split('/'), name = parts.pop().replace(/\.md$/, '') + '_미리보기.html';
+    if (parts.length && parts[parts.length - 1].normalize('NFC') === '원고') parts[parts.length - 1] = '미리보기';
+    return parts.concat(name).join('/');
+  }
   function clock(ms) { const t = Math.max(0, Math.floor(ms / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
   const hm = (t) => { const d = new Date(t); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
 
-  const LECTURE = '10_프로젝트/01_진행/강의';
+  const LECTURES = ['10_프로젝트/01_진행/운영중/콘텐츠/콘텐츠목록', '10_프로젝트/01_진행/운영/콘텐츠/콘텐츠목록'];
+  async function lectureDir() {
+    for (const L of LECTURES) { try { if ((await D().kind(L)) === 'directory') return L; } catch (e) {  } }
+    return null;
+  }
   const verOf = (n) => { const m = n.match(/_v(\d+)(?=[^/]*\.md$)/); return m ? +m[1] : 0; };
   const dateOf = (n) => { const m = n.match(/^(\d{8})_/); return m ? m[1] : ''; };
+  const isBlogDraft = (n) => /_블로그_/.test(n);
   async function listMd(dir) {
     try { if ((await D().kind(dir)) !== 'directory') return []; } catch (e) { return []; }
     let l = []; try { l = await D().list(dir); } catch (e) { return []; }
     return l.filter((f) => f.kind === 'file' && /\.md$/i.test(f.name) && !f.name.startsWith('.')).map((f) => ({ name: f.name.normalize('NFC'), rel: dir + '/' + f.name.normalize('NFC'), ver: verOf(f.name), date: dateOf(f.name) }));
   }
+  async function subDirs(dir) {
+    try { return (await D().list(dir)).filter((f) => f.kind === 'directory' && !f.name.startsWith('.') && !f.name.startsWith('_')).map((f) => f.name.normalize('NFC')); } catch (e) { return []; }
+  }
   async function lectureTopics() {
     if (!desktop()) return [];
-    let dirs = [];
-    try { dirs = (await D().list(LECTURE)).filter((f) => f.kind === 'directory' && !f.name.startsWith('.') && !f.name.startsWith('_')); } catch (e) { return []; }
+    const LECTURE = await lectureDir();
+    if (!LECTURE) return [];
+    let topics = [];
+    try { topics = (await D().list(LECTURE)).filter((f) => f.kind === 'directory' && !f.name.startsWith('.') && !f.name.startsWith('_')).map((f) => f.name.normalize('NFC')); } catch (e) { return []; }
+    const sortV = (a, b) => b.ver - a.ver || b.date.localeCompare(a.date) || b.name.localeCompare(a.name);
     const out = [];
-    for (const d of dirs) {
-      const topic = d.name.normalize('NFC'), dir = LECTURE + '/' + topic;
-      const sortV = (a, b) => b.ver - a.ver || b.date.localeCompare(a.date) || b.name.localeCompare(a.name);
-      const manus = (await listMd(dir + '/원고')).sort(sortV);
-      const blogs = (await listMd(dir + '/블로그')).sort(sortV);
+    const read = async (topic, dir) => {
+      const all = await listMd(dir + '/원고');
+      const manus = all.filter((f) => !isBlogDraft(f.name)).sort(sortV);
+      const blogs = all.filter((f) => isBlogDraft(f.name)).concat(await listMd(dir + '/블로그')).sort(sortV);
       const latest = [manus[0], blogs[0]].filter(Boolean).map((f) => f.date).sort().pop() || '';
-      out.push({ topic, dir, manus, blogs, latest });
+      return { topic, dir, manus, blogs, latest };
+    };
+    for (const t of topics) {
+      const tdir = LECTURE + '/' + t;
+      const cats = [];
+      for (const ch of (await subDirs(tdir)).filter((n) => /^\d{2}_블로그$/.test(n))) {
+        for (const cat of await subDirs(tdir + '/' + ch)) cats.push(await read(t + ' · ' + cat, tdir + '/' + ch + '/' + cat));
+      }
+      const old = await read(t, tdir);
+      if (old.manus.length || old.blogs.length || !cats.length) out.push(old);
+      cats.forEach((c) => out.push(c));
     }
     return out.sort((a, b) => b.latest.localeCompare(a.latest) || a.topic.localeCompare(b.topic));
   }
@@ -322,10 +347,16 @@
     const base = '10_프로젝트/01_진행';
     let dirs = [];
     try { dirs = (await D().list(base)).filter((f) => f.kind === 'directory' && !f.name.startsWith('.')); } catch (e) { return []; }
-    const out = [];
+    const rels = [];
     for (const d of dirs) {
-      const rel = base + '/' + d.name.normalize('NFC') + '/디자인/에셋';
-      try { if ((await D().kind(rel)) === 'directory') out.push({ project: d.name.normalize('NFC'), rel }); } catch (e) {  }
+      const n = d.name.normalize('NFC');
+      if (n === '개발' || n === '운영' || n === '운영중') (await subDirs(base + '/' + n)).forEach((x) => rels.push(n + '/' + x));
+      else rels.push(n);
+    }
+    const out = [];
+    for (const r of rels) {
+      const rel = base + '/' + r + '/디자인/에셋', project = r.split('/').pop();
+      try { if ((await D().kind(rel)) === 'directory') out.push({ project, rel }); } catch (e) {  }
     }
     return out.sort((a, b) => (b.project === 'pixel-office') - (a.project === 'pixel-office') || a.project.localeCompare(b.project));
   }

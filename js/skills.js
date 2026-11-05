@@ -89,8 +89,9 @@
     }
     const names = SK.roster.map((s) => s.name);
     SK.works = [];
-    for (const p of C.WORK_FILES) {
-      const t = await readText(p);
+    for (const p0 of C.WORK_FILES) {
+      let p = p0, t = null;
+      for (const q of (C.workAlts ? C.workAlts(p0) : [p0])) { t = await readText(q); if (t != null) { p = q; break; } }
       if (t == null) continue;
       const w = C.parseWork(t, names);
       SK.works.push({ id: 'w:' + p, type: 'work', kind: '작업지시서', title: w.title || p.split('/').pop(), file: p.split('/').pop(), rel: p, text: nfc(t), work: w, owner: w.owner, col: C.workCol(w.owner && staffOf(w.owner) ? colOf(w.owner) : ''),
@@ -260,8 +261,8 @@
   function workRight(b) {
     const st = b.work.steps;
     return '<div class="sk-pg"><div class="sk-lab" style="margin-top:0">순서 <span class="aside">체크는 원본 파일에서</span></div>' +
-      (st.length ? '<ul class="wo-list">' + st.map((s) => '<li><i class="' + (s.done ? 'on' : '') + '" aria-label="' + (s.done ? '끝남' : '안 끝남') + '"></i><span>' + s.no + '. ' + esc(s.text) + '</span>' +
-        (s.owner ? '<span class="dm" title="' + esc(s.note) + '"><i style="--p:' + colOf(s.owner) + '"></i>' + esc(short(s.owner)) + '</span>' : '<span></span>') + '</li>').join('') + '</ul>' : '<p class="sk-note">"## 순서" 절에 체크 칸이 없어요.</p>') + '</div>';
+      (st.length ? '<ul class="wo-list">' + st.map((s, i) => (s.group && (i === 0 || st[i - 1].group !== s.group) ? '<li class="wo-grp"><b>' + esc(s.group) + '</b></li>' : '') + '<li><i class="' + (s.done ? 'on' : '') + '" aria-label="' + (s.done ? '끝남' : '안 끝남') + '"></i><span>' + s.no + '. ' + esc(s.text) + '</span>' +
+        (s.owner ? '<span class="dm" title="' + esc(s.note) + '"><i style="--p:' + colOf(s.owner) + '"></i>' + esc(short(s.owner)) + '</span>' : '<span></span>') + '</li>').join('') + '</ul>' : '<p class="sk-note">"## 순서"(또는 절 안 "### 순서")에 체크 칸이 없어요.</p>') + '</div>';
   }
 
   function buildPages(b) {

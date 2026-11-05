@@ -4,11 +4,12 @@
 
   const TABLE_PATH = '00_운영/도구/스킬표.json';
   const usagePath = (folder) => '00_운영/도구/' + nfc(folder) + '/사용법.md';
+  const workAlts = (p) => (/^10_프로젝트\/01_진행\/운영\//.test(p) ? [p.replace('/01_진행/운영/', '/01_진행/운영중/'), p] : [p]);
   const WORK_FILES = [
     '00_운영/정리/작업지시서_이름점검.md',
     '00_운영/정리/작업지시서_컴퓨터정리.md',
-    '10_프로젝트/01_진행/강의/작업지시서_블로그제작.md',
-    '10_프로젝트/01_진행/강의/작업지시서_원고작성.md',
+    '10_프로젝트/01_진행/운영/콘텐츠/작업지시서_블로그제작.md',
+    '10_프로젝트/01_진행/운영/콘텐츠/작업지시서_원고작성.md',
   ];
   const WORK_NONE = { c: '#C5C7CA', sh: '#AAADB2', hi: '#DADCDD' };
   function shade(hex, a) { const n = parseInt(String(hex).slice(1), 16); const f = (x) => Math.max(0, Math.min(255, Math.round(x + (a < 0 ? x * a : (255 - x) * a)))); return '#' + [n >> 16, (n >> 8) & 255, n & 255].map((x) => f(x).toString(16).padStart(2, '0')).join('').toUpperCase(); }
@@ -167,17 +168,19 @@
     if (t >= 0) out.title = lines[t].replace(/^#\s+/, '').replace(/^작업지시서\s*[—–-]\s*/, '').trim();
     for (let j = t + 1; j < lines.length; j++) { const l = lines[j]; if (/^#/.test(l)) break; if (l.trim() && !isList(l)) { out.lead = plain(l); break; } }
     const ownerIn = (s) => { let best = null; names.forEach((n) => { const i = s.indexOf(n); if (i >= 0 && (best == null || i < best.i)) best = { n, i }; }); return best ? best.n : ''; };
-    let sec = null, inSteps = false;
+    let sec = null, inSteps = false, group = '';
     lines.forEach((l, j) => {
       if (j <= t) return;
       const h = l.match(/^##\s+(.+)$/);
-      if (h) { inSteps = /^순서/.test(h[1].trim()); sec = inSteps ? null : { head: h[1].trim(), lines: [] }; if (sec) out.sections.push(sec); return; }
+      if (h) { inSteps = /^순서/.test(h[1].trim()); group = inSteps ? '' : plain(h[1].trim()); sec = inSteps ? null : { head: h[1].trim(), lines: [] }; if (sec) out.sections.push(sec); return; }
+      const h3 = l.match(/^###\s+(.+)$/);
+      if (h3) { inSteps = /^순서/.test(h3[1].trim()); if (!inSteps && sec) sec.lines.push(l); return; }
       if (inSteps) {
         const m = l.match(/^- \[([ xX])\]\s*(\d+)\.\s*(.+)$/);
         if (m) {
           const d = m[3].split(/\s+[—–]\s+담당:\s*/);
           const owner = d[1] ? ownerIn(d[1]) : '';
-          out.steps.push({ no: +m[2], text: plain(d[0]) + (d[1] && !owner ? ' — ' + plain(d[1]) : ''), done: m[1] !== ' ', owner, note: d[1] && owner ? plain(d[1]) : '' });
+          out.steps.push({ no: +m[2], text: plain(d[0]) + (d[1] && !owner ? ' — ' + plain(d[1]) : ''), done: m[1] !== ' ', owner, note: d[1] && owner ? plain(d[1]) : '', group });
           if (owner && !out.owners.includes(owner)) out.owners.push(owner);
         }
         return;
@@ -199,7 +202,7 @@
     return ids;
   }
 
-  const API = { TABLE_PATH, usagePath, WORK_FILES, WORK_NONE, workCol, shade, SKILL_COL, SKILL_FRAME, ATTACH_WITHOUT_BUTTON, ORDER, BTN_ORDER, FENCE, parseTable, serialize, withStaff, canAttach, staffTools, orderStaff,
+  const API = { TABLE_PATH, usagePath, WORK_FILES, workAlts, WORK_NONE, workCol, shade, SKILL_COL, SKILL_FRAME, ATTACH_WITHOUT_BUTTON, ORDER, BTN_ORDER, FENCE, parseTable, serialize, withStaff, canAttach, staffTools, orderStaff,
     parseUsage, parseAgentHead, aiState, canRun, askAttach, askDetach, parseWork, workUses, nfc };
   root.POSkillsCore = API;
   if (typeof module !== 'undefined' && module.exports) module.exports = API;

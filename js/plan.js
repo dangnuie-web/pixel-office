@@ -1,16 +1,19 @@
 (function (root) {
   'use strict';
   const D = root.POPlanData, LN = root.PO_LINES || {};
-  const COLS = [['Today', 'today'], ['Weekly', 'week'], ['완료', 'done']];
-  const ADD_COLS = ['Today', 'Weekly'];
-  const VIEWS = { 진행: ['Today', 'Weekly'], 완료: ['완료'] };
+  const LATER = 'Someday';
+  const COLS = [['Today', 'today'], [LATER, 'week'], ['완료', 'done']];
+  const ADD_COLS = ['Today', LATER];
+  const VIEWS = { 진행: ['Today', LATER], 완료: ['완료'] };
   const DD_FOLD = 3;
   const DONE_DAYS = 7;
   const OK_MS = 4000, UNDO_MS = 5000, DRAG_PX = 4, CLICK_GUARD_MS = 400;
-  const FOCUS_KEY = 'po.plan.focus';
+  const FOCUS_KEY = 'po.plan.focus', PTAB_KEY = 'po.plan.ptab';
+  const PTABS = (D && D.TABS) || ['개발', '운영', '완료', '보류'];
+  const GO_TABS = ['개발', '운영'];
   const EMPTY = {
-    Today: '오늘 할 일이 없어요. 위에서 추가하거나 Weekly에서 끌어오세요.',
-    Weekly: '이번 주에 할 일을 모아 두세요.',
+    Today: '오늘 할 일이 없어요. 위에서 추가하거나 Someday에서 끌어오세요.',
+    [LATER]: '날짜 없이 언젠가 할 일을 모아 두세요.',
     완료: '체크한 일이 날짜와 함께 쌓여요.',
   };
   const WD = ['일', '월', '화', '수', '목', '금', '토'];
@@ -24,10 +27,15 @@
     ordering: false,
     rowDrag: null,
     barMs: false,
+    ptab: loadTab(),
   };
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = (sel) => U.el && U.el.querySelector(sel);
-  function loadFocus() { try { const v = root.localStorage.getItem(FOCUS_KEY); return ADD_COLS.indexOf(v) >= 0 ? v : 'Today'; } catch (e) { return 'Today'; } }
+  function loadFocus() { try { let v = root.localStorage.getItem(FOCUS_KEY); if (v === 'Weekly' || v === '언젠간 할일') v = LATER; return ADD_COLS.indexOf(v) >= 0 ? v : 'Today'; } catch (e) { return 'Today'; } }
+  function loadTab() { try { const v = root.localStorage.getItem(PTAB_KEY); return PTABS.indexOf(v) >= 0 ? v : '개발'; } catch (e) { return '개발'; } }
+  function saveTab() { try { root.localStorage.setItem(PTAB_KEY, U.ptab); } catch (e) {  } }
+  const goTab = () => GO_TABS.indexOf(U.ptab) >= 0;
+  const curView = () => (goTab() ? D.projectsView(U.ptab) : D.archiveView(U.ptab));
   function saveFocus() { try { root.localStorage.setItem(FOCUS_KEY, U.focus); } catch (e) {  } }
   const canWrite = () => D.writable();
   const dis = () => (canWrite() ? '' : ' disabled');
@@ -38,7 +46,6 @@
   function colNote(key) {
     const t = dnum(D.today());
     if (key === 'Today') return md(t) + ' ' + WD[new Date(t * DAY).getUTCDay()];
-    if (key === 'Weekly') { const wd = (new Date(t * DAY).getUTCDay() + 6) % 7; return md(t - wd) + ' – ' + md(t - wd + 6); }
     if (key === '완료') return '최근 ' + DONE_DAYS + '일';
     return '';
   }
@@ -82,6 +89,7 @@
 
   async function render(el, handle, opts) {
     U.el = el; U.handle = handle; U.opts = opts || {};
+    U.ptab = loadTab();
     D.onChange = onData;
     if (!el.querySelector('.pl-head')) el.innerHTML = '<p class="pj-loading">읽는 중…</p>';
     await D.load(handle, { test: !!U.opts.test });
@@ -93,11 +101,10 @@
     if (why === 'notice') { paintPos(); if (U.ddOpen) paintDD(); return; }
     if (why === 'edit') { paintBoard(); paintPos(); if (U.ddOpen) paintDD(); paintStatus(); return; }
     if (why === 'order') { paintPos(); return; }
-    if (why === 'projects') { const n = $('#pl-sum'); if (n) n.textContent = D.state.projects.length; paintPos(); if (U.ddOpen) paintDD(); return; }
+    if (why === 'projects') { paintTabs(); paintPos(); if (U.ddOpen) paintDD(); return; }
   }
   function drawAll() {
     const el = U.el;
-    const sum = D.state.projects.length;
     el.innerHTML =
       '<div class="pj-head pl-head"><h2>프로젝트 관리</h2><div class="pr-tools"><span id="pr-status">' + statusHtml() + '</span></div></div>' +
       (D.state.test ? '<p class="pr-ro">시연 보기예요. ' + (root.PO_PUBLIC === true ? '예시 사무실의' : '시험자료의') + ' 예시 할 일만 보이고, 고쳐도 저장하지 않아요.</p>' : canWrite() ? '' : '<p class="pr-ro">브라우저에서는 읽기만 해요. 할 일 추가·체크는 데스크톱 앱(Pixel Office)에서 할 수 있어요.</p>') +
@@ -112,19 +119,16 @@
       '<div class="pl-bh"><div class="pl-view" id="pl-view" role="tablist" aria-label="할 일 보기"></div>' +
         '<p class="pl-hint"><span class="lk"><i class="lk-dot"></i>로드맵 칸에서 고른 일 · 끝내면 그 칸도 같이 체크</span><span>카드를 끌어 칸을 옮기거나, 마우스를 올려 버튼으로</span></p></div>' +
       '<div class="pl-board" id="pl-board" role="tabpanel"></div>' +
-      '<div class="pl-sec-h"><h3>진행 중인 프로젝트</h3><small id="pl-sum">' + sum + '</small><span class="turn" id="pl-turn"></span>' +
-        (canWrite() ? '<button class="pr-btn" data-act="mk-open" aria-expanded="' + !!U.mk + '" aria-controls="pl-mk">+ 새 프로젝트</button>' : '') +
-        (canWrite() ? '<button class="pr-btn" data-act="ord-edit" aria-pressed="' + U.ordering + '">' + (U.ordering ? '순서 편집 끝' : '순서 편집') + '</button>' : '') + '</div>' +
+      '<div class="pl-sec-h" id="pl-sec"></div>' +
       '<div id="pl-mk"></div>' +
-      '<div class="pl-pos" id="pl-pos"></div>' +
-      '<div class="pl-fold" id="pl-fold">' + foldHtml() + '</div>';
-    paintNotice(); paintBoard(); paintMk(); paintPos();
+      '<div class="pl-pos" id="pl-pos" role="tabpanel"></div>';
+    paintNotice(); paintBoard(); paintTabs(); paintMk(); paintPos();
     bind();
   }
 
   function paintView(L) {
     const e = $('#pl-view'); if (!e) return;
-    const n = { 진행: L.Today.length + L.Weekly.length, 완료: L.완료.length };
+    const n = { 진행: L.Today.length + L[LATER].length, 완료: L.완료.length };
     e.innerHTML = Object.keys(VIEWS).map((v) => '<button role="tab" data-act="view" data-view="' + v + '" aria-selected="' + (U.view === v) + '" tabindex="' + (U.view === v ? 0 : -1) + '">' +
       '<i class="sw ' + (v === '완료' ? 'done' : 'go') + '"></i>' + v + '<b>' + n[v] + '</b></button>').join('');
   }
@@ -186,7 +190,7 @@
   }
   const rowOf = (project) => U.el && Array.from(U.el.querySelectorAll('#pl-pos .pl-p')).find((r) => r.dataset.p === project);
   function repaintRow(project) {
-    const row = rowOf(project), pv = D.projectsView(), i = pv.findIndex((x) => x.project === project);
+    const row = rowOf(project), pv = curView(), i = pv.findIndex((x) => x.project === project);
     if (!row || i < 0) return;
     const a = document.activeElement, refocus = a && row.contains(a) && a.classList.contains('pl-bar');
     row.outerHTML = posRow(pv[i], i, pv);
@@ -217,7 +221,7 @@
   }
   function startScrub(barEl, e) {
     e.preventDefault(); U.barMs = true;
-    const v = D.projectsView().find((x) => x.project === barEl.dataset.p); if (!v) return;
+    const v = curView().find((x) => x.project === barEl.dataset.p); if (!v) return;
     document.body.classList.add('pl-scrubbing');
     const move = (ev) => scrubAt(v, ev.clientX);
     const up = () => {
@@ -235,55 +239,66 @@
     cls = cls || 'pl-goal';
     return v.desc ? '<p class="' + cls + '" data-src="' + v.descSrc + '" title="' + esc(v.descTitle + ': ' + v.desc) + '">' + esc(v.desc) + '</p>' : '<p class="' + cls + ' none" data-src="none">설명 없음</p>';
   }
-  const taskBtn = (v) => (canWrite() ? '<button class="pl-taskb" data-act="task-open" data-p="' + esc(v.project) + '" aria-expanded="' + !!(U.task && U.task.project === v.project) + '">+ 할 일</button>' : '');
+  const taskBtn = (v) => (canWrite() && !v.readonly ? '<button class="pl-taskb" data-act="task-open" data-p="' + esc(v.project) + '" aria-expanded="' + !!(U.task && U.task.project === v.project) + '">+ 할 일</button>' : '');
   const rowCls = (v) => 'pl-p' + (U.hl === v.project ? ' hl' : '');
   const formOf = (v) => (U.task && U.task.project === v.project ? taskFormHtml(v) : '');
   function nameHtml(v, i, n) {
-    if (!canWrite() || i == null) return '<h5>' + esc(v.project) + '</h5>';
+    if (!canWrite() || i == null || v.readonly) return '<h5>' + esc(v.project) + '</h5>';
     const P = esc(v.project), b = (to, fk, txt, lab) => '<button data-act="ord" data-p="' + P + '" data-to="' + to + '" data-fk="' + fk + ':' + P + '" aria-label="' + esc(v.project) + ' ' + lab + '"' + (to < 0 || to >= n || to === i ? ' disabled' : '') + '>' + txt + '</button>';
     return '<div class="pl-name"><button class="pl-grip" data-p="' + P + '" data-fk="grip:' + P + '" aria-label="' + P + ' 순서 옮기기 (끌거나 ↑↓ 키)" title="끌어서 순서 바꾸기"></button><h5>' + P + '</h5>' +
       (U.ordering ? '<span class="pl-ord">' + b(0, 'top', '맨 위', '맨 위로') + b(i - 1, 'up', '↑', '위로') + b(i + 1, 'down', '↓', '아래로') + '</span>' : '') + '</div>';
   }
   function posRow(v, i, all) {
     const left = '<div>' + nameHtml(v, i, all && all.length) + descHtml(v) + '</div>';
-    if (v.state === 'empty' || v.state === 'done') {
-      return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + '<div class="pl-stage"><b>' + (v.state === 'done' ? '다 끝남' : '칸 없음') + '</b></div><div class="pl-top">' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>' + formOf(v) + '</div>';
+    const act = canWrite() && !v.readonly ? '<div class="act">' + taskBtn(v) + '</div>' : '';
+    if (v.state === 'empty') {
+      return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + '<div class="pl-stage"><b>칸 없음</b></div><div class="pl-top">' + act + '</div>' + formOf(v) + '</div>';
     }
-    const stage = v.state === 'later' ? '단계 끝' : v.stageLabel;
+    const stage = v.state === 'later' ? '단계 끝' : v.state === 'done' ? '다 끝남' : v.stageLabel;
     const back = scrubOf(v) ? '<button class="pl-back" data-act="scrub-off" data-p="' + esc(v.project) + '">지금 할 일로</button>' : '';
     const mid = '<div><div class="pl-stage"><b title="' + esc(stage) + '">' + esc(stage) + '</b>' + (back || (v.state === 'now' ? '<small><span class="w">지금 단계 </span>남은 칸 ' + v.stageProgress.open + '/' + v.stageProgress.total + '</small>' : '')) + '</div>' + bar(v) + '</div>';
     let right;
     const sc = scrubOf(v);
     if (sc) right = peekHtml(v, sc);
-    else if (v.state === 'later') right = '<div class="pl-top"><div class="lab">지금 할 일</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p>' + (canWrite() ? '<div class="act">' + taskBtn(v) + '</div>' : '') + '</div>';
+    else if (v.state === 'done') right = '<div class="pl-top">' + act + '</div>';
+    else if (v.state === 'later') right = '<div class="pl-top"><div class="lab">지금 할 일</div><p class="end">나중에 할 일 ' + (v.stageLabel.match(/(\d+)개/) || [0, 0])[1] + '개</p>' + act + '</div>';
     else {
-      const add = v.cell.inTodo ? '<span class="pl-inT">Today에 있음</span>' : canWrite() ? '<button data-act="add-top" data-p="' + esc(v.project) + '">+ Today</button>' : '';
+      const add = v.readonly ? '' : v.cell.inTodo ? '<span class="pl-inT">Today에 있음</span>' : canWrite() ? '<button data-act="add-top" data-p="' + esc(v.project) + '">+ Today</button>' : '';
       right = '<div class="pl-top"><div class="lab">지금 할 일</div><p class="tx">' + esc(v.cell.full) + '</p><div class="act">' + who(v.owners, v.ownerTurn) + taskBtn(v) + add + '</div></div>';
     }
     return '<div class="' + rowCls(v) + '" data-p="' + esc(v.project) + '">' + left + mid + right + formOf(v) + '</div>';
   }
+  function paintTabs() {
+    const e = $('#pl-sec'); if (!e) return;
+    const n = D.tabCounts(), a = document.activeElement, had = a && e.contains(a) ? (a.dataset.ptab ? 'tab' : a.dataset.act) : null;
+    e.innerHTML = '<div class="pl-view pl-ptab" id="pl-ptab" role="tablist" aria-label="프로젝트">' + PTABS.map((t) => '<button role="tab" data-act="ptab" data-ptab="' + t + '" aria-selected="' + (U.ptab === t) + '" tabindex="' + (U.ptab === t ? 0 : -1) + '" aria-controls="pl-pos">' + t + '<b>' + n[t] + '</b></button>').join('') + '</div>' +
+      '<span class="turn" id="pl-turn"></span>' +
+      (canWrite() && U.ptab === '개발' ? '<button class="pr-btn" data-act="mk-open" aria-expanded="' + !!U.mk + '" aria-controls="pl-mk">+ 새 프로젝트</button>' : '') +
+      (canWrite() && goTab() ? '<button class="pr-btn" data-act="ord-edit" aria-pressed="' + U.ordering + '">' + (U.ordering ? '순서 편집 끝' : '순서 편집') + '</button>' : '');
+    if (had) { const b = had === 'tab' ? $('#pl-ptab [aria-selected="true"]') : $('#pl-sec [data-act="' + had + '"]'); if (b) b.focus(); }
+  }
+  function setTab(t) {
+    if (PTABS.indexOf(t) < 0 || U.ptab === t) return;
+    U.ptab = t; saveTab(); U.scrub = null;
+    if (U.task) U.task = null;
+    if (U.mk && t !== '개발') U.mk = null;
+    if (!goTab()) U.ordering = false;
+    paintTabs(); paintMk(); paintPos();
+  }
   function paintPos() {
     const e = $('#pl-pos'); if (!e) return;
     const fx = focusKey();
-    e.classList.toggle('ordering', U.ordering && canWrite());
-    const pv = D.projectsView(), nm = D.noRoadmap();
+    e.classList.toggle('ordering', U.ordering && canWrite() && goTab());
+    e.dataset.tab = U.ptab;
+    const pv = curView(), nm = goTab() ? D.noRoadmap(U.ptab) : D.archiveNoRoadmap(U.ptab);
     const rows = pv.map((v, i) => posRow(v, i, pv));
     if (nm.length) rows.push('<div class="pl-nomap-h">로드맵 없음 ' + nm.length + '</div>' + nm.map((v) => '<div class="pl-p nomap" data-p="' + esc(v.project) + '"><h5>' + esc(v.project) + '</h5>' + descHtml(v) + '</div>').join(''));
-    e.innerHTML = rows.length ? rows.join('') : '<p class="pl-empty dark">' + (canWrite() ? '진행 중인 프로젝트가 아직 없어요. 오른쪽 위 [+ 새 프로젝트]로 만들어 보세요.' : '진행 중인 프로젝트 폴더를 못 읽었어요.') + '</p>';
+    const none = U.ptab !== '개발' ? (D.state.test && !goTab() ? '시연 보기에서는 비워 둬요.' : '없어요.')
+      : canWrite() ? '진행 중인 프로젝트가 아직 없어요. 오른쪽 위 [+ 새 프로젝트]로 만들어 보세요.' : '진행 중인 프로젝트 폴더를 못 읽었어요.';
+    e.innerHTML = rows.length ? rows.join('') : '<p class="pl-empty dark">' + none + '</p>';
     restoreFocus(fx);
-    const t = $('#pl-turn'); if (t) { const n = pv.filter((v) => v.cell && v.ownerTurn).length; t.innerHTML = n ? (root.PO_NM || String)('<i></i>당니님 차례 ') + n : ''; }
+    const t = $('#pl-turn'); if (t) { const n = goTab() ? pv.filter((v) => v.cell && v.ownerTurn).length : 0; t.innerHTML = n ? (root.PO_NM || String)('<i></i>당니님 차례 ') + n : ''; }
   }
-  function foldHtml() {
-    const A = D.archive();
-    return [['완료', 'fin'], ['보류', 'hold']].map(([k, cls]) => {
-      const list = A[k] || [];
-      const items = list.length ? '<ul>' + list.map((a) => '<li data-p="' + esc(a.project) + '"><b>' + esc(a.project) + '</b>' + descHtml(a, 'pl-fdesc') +
-        (a.hasRoadmap && a.total ? '<span class="mini" title="로드맵 체크 ' + a.done + '/' + a.total + '"><span><i style="width:' + Math.round((a.done / a.total) * 100) + '%"></i></span>' + a.done + '/' + a.total + '</span>' : '') + '</li>').join('') + '</ul>'
-        : '<p class="pr-empty">' + (D.state.test ? '시연 보기에서는 비워 둬요.' : '없어요.') + '</p>';
-      return '<details class="' + cls + '" data-fold="' + k + '"><summary><b>' + k + '</b><span class="n">' + list.length + '</span><small>' + esc(list.map((a) => a.project).join(', ')) + '</small></summary>' + items + '</details>';
-    }).join('');
-  }
-
   function focusKey() { const a = document.activeElement; return a && U.el && U.el.contains(a) && a.dataset && a.dataset.fk ? { k: a.dataset.fk, s: a.selectionStart, e: a.selectionEnd } : null; }
   function restoreFocus(fx) {
     if (!fx) return;
@@ -307,7 +322,7 @@
     const f = U.mk; if (!f || f.busy) return;
     const inp = $('#pl-mk-in'); if (inp) f.value = inp.value;
     f.busy = true; f.err = ''; paintMk();
-    const r = await D.createProject(f.value);
+    const r = await D.createProject(f.value, U.ptab);
     f.busy = false;
     if (!r.ok) { f.err = r.error; paintMk(); const i = $('#pl-mk-in'); if (i) { i.focus(); i.select(); } return; }
     U.mk = null; paintMk();
@@ -458,12 +473,12 @@
     if (U.view !== '진행') setView('진행'); const inp = $('#pl-in'); U.query = ''; if (inp) { inp.value = ''; inp.focus(); } U.ddSel = 0; closeDD(); }
 
   async function doToggle(id, done) {
-    const it = D.lists(); const all = [].concat(it.Today, it.Weekly, it.완료); const x = all.find((y) => y.id === id);
+    const it = D.lists(); const all = [].concat(it.Today, it[LATER], it.완료); const x = all.find((y) => y.id === id);
     const r = await D.toggle(id, done);
     if (x) roadmapNotice(r.roadmap, x);
   }
   async function doMove(id, col, index) {
-    const L = D.lists(); const all = [].concat(L.Today, L.Weekly, L.완료); const x = all.find((y) => y.id === id);
+    const L = D.lists(); const all = [].concat(L.Today, L[LATER], L.완료); const x = all.find((y) => y.id === id);
     const r = await D.move(id, col, index);
     if (x) roadmapNotice(r.roadmap, x);
     focusCard(id);
@@ -506,6 +521,7 @@
       else if (act === 'scrub-off') clearScrub(b.dataset.p);
       else if (act === 'ord-edit') { U.ordering = !U.ordering; b.setAttribute('aria-pressed', String(U.ordering)); b.textContent = U.ordering ? '순서 편집 끝' : '순서 편집'; paintPos(); }
       else if (act === 'ord') moveTo(b.dataset.p, +b.dataset.to);
+      else if (act === 'ptab') { setTab(b.dataset.ptab); const t = $('#pl-ptab [aria-selected="true"]'); if (t) t.focus(); }
       else if (act === 'view') { setView(b.dataset.view); const t = $('#pl-view [aria-selected="true"]'); if (t) t.focus(); }
     };
     const inp = $('#pl-in'), dd = $('#pl-dd');
@@ -514,6 +530,7 @@
       inp.oninput = () => { U.query = inp.value; U.ddSel = 0; openDD(); };
       inp.onblur = () => setTimeout(() => { if (document.activeElement !== inp) closeDD(); }, 120);
       inp.onkeydown = (e) => {
+        if (e.isComposing || e.keyCode === 229) return;
         const n = U.ddRows.filter(selectable).length;
         if (e.key === 'ArrowDown') { e.preventDefault(); if (!U.ddOpen) openDD(); else { U.ddSel = Math.min(n - 1, U.ddSel + 1); paintDD(); } }
         else if (e.key === 'ArrowUp') { e.preventDefault(); if (U.ddOpen) { U.ddSel = Math.max(0, U.ddSel - 1); paintDD(); } }
@@ -551,18 +568,25 @@
         return;
       }
       const ed = e.target.closest && e.target.closest('.pl-edit');
-      if (ed) { if (e.key === 'Enter') { e.preventDefault(); commitEdit(ed, true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); commitEdit(ed, false); } return; }
+      if (ed) { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter') { e.preventDefault(); commitEdit(ed, true); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); commitEdit(ed, false); } return; }
+      const pt = e.target.closest && e.target.closest('#pl-ptab [role="tab"]');
+      if (pt && ['ArrowLeft', 'ArrowRight', 'Home', 'End'].indexOf(e.key) >= 0) {
+        e.preventDefault();
+        const i = PTABS.indexOf(U.ptab), L = PTABS.length;
+        setTab(PTABS[{ ArrowLeft: (i - 1 + L) % L, ArrowRight: (i + 1) % L, Home: 0, End: L - 1 }[e.key]]);
+        const t = $('#pl-ptab [aria-selected="true"]'); if (t) t.focus(); return;
+      }
       const tab = e.target.closest && e.target.closest('#pl-view [role="tab"]');
       if (tab && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); setView(U.view === '진행' ? '완료' : '진행'); const t = $('#pl-view [aria-selected="true"]'); if (t) t.focus(); return; }
       if (e.target.classList && e.target.classList.contains('pl-grip') && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
         e.preventDefault();
-        const i = D.projectsView().findIndex((x) => x.project === e.target.dataset.p);
+        const i = curView().findIndex((x) => x.project === e.target.dataset.p);
         if (i >= 0) moveTo(e.target.dataset.p, i + (e.key === 'ArrowUp' ? -1 : 1));
         return;
       }
       if (e.key === 'Escape' && U.rowDrag) { endRowDrag(false); return; }
       if (e.target.classList && e.target.classList.contains('pl-bar')) {
-        const v = D.projectsView().find((x) => x.project === e.target.dataset.p); if (!v) return;
+        const v = curView().find((x) => x.project === e.target.dataset.p); if (!v) return;
         const cur = U.scrub && U.scrub.project === v.project ? U.scrub.idx : Math.max(0, nowIdx(v)), last = flatCells(v).length - 1;
         const to = { ArrowLeft: cur - 1, ArrowDown: cur - 1, ArrowRight: cur + 1, ArrowUp: cur + 1, Home: 0, End: last }[e.key];
         if (to != null) { e.preventDefault(); U.barMs = false; e.target.classList.remove('ms'); setScrub(v, to); }
@@ -584,7 +608,7 @@
   }
 
   async function moveTo(project, to) {
-    const ok = await D.moveProject(project, to);
+    const ok = await D.moveProject(project, to, goTab() ? U.ptab : undefined);
     if (!ok) drawAll();
   }
   const posRows = () => Array.from(U.el.querySelectorAll('#pl-pos > .pl-p:not(.nomap)'));

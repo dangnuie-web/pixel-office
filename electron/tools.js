@@ -9,6 +9,7 @@ const FENCE = require('./fence');
 
 const nfc = (s) => String(s).normalize('NFC');
 const IMAGE_EXT = /\.(png|jpe?g|webp)$/i;
+const CONTENT_LISTS = ['10_프로젝트/01_진행/운영중/콘텐츠/콘텐츠목록/', '10_프로젝트/01_진행/운영/콘텐츠/콘텐츠목록/'];
 
 const TOOLS = {
   'blog-preview': { script: '블로그미리보기/만들기.py', params: { draft: 'md' }, args: (p) => [p.draft] },
@@ -22,8 +23,8 @@ const TOOLS = {
   'cleanup-scan': { script: '정리점검/점검.py', args: () => ['--json', '-'] },
   'name-check': { script: '이름점검/점검.py', args: () => ['--json', '-'] },
   'blog-frame': { script: '블로그틀/만들기.py', params: { src: 'md' }, args: (p) => [p.src, '--open'] },
-  'lecture-preview': { script: '강의목록갱신/갱신.py', params: { src: 'lecture' }, args: (p) => [p.src] },
-  'lecture-write': { script: '강의목록갱신/갱신.py', params: { src: 'lecture' }, args: (p) => [p.src, '--write'] },
+  'lecture-preview': { script: '콘텐츠목록갱신/갱신.py', params: { src: 'lecture' }, args: (p) => [p.src] },
+  'lecture-write': { script: '콘텐츠목록갱신/갱신.py', params: { src: 'lecture' }, args: (p) => [p.src, '--write'] },
   'pixel-convert': { script: '픽셀변환/변환.py', json: true,
     params: { src: 'image', cells: 'cells', colors: 'colors', outline: 'onoff', background: 'bg', resample: 'resample', crop: 'crop?' },
     args: (p) => [p.src, '--칸', String(p.cells), '--색', String(p.colors), '--외곽선', p.outline, '--배경', p.background, '--줄이기', p.resample]
@@ -192,8 +193,10 @@ function checkParam(office, kind, v) {
     return full;
   }
   if (kind === 'lecture') {
-    if (!rel.startsWith('10_프로젝트/01_진행/강의/') || rel.split('/').length < 4) reject('강의 주제 폴더나 원고만 돼요: ' + v);
-    if (!(st.isDirectory() || (st.isFile() && /\.md$/i.test(full)))) reject('강의 주제 폴더나 원고만 돼요: ' + v);
+    const CL = CONTENT_LISTS.find((x) => rel.startsWith(x));
+    const under = CL ? rel.slice(CL.length).split('/').filter(Boolean) : [];
+    if (!under.length) reject('콘텐츠 주제 폴더나 원고만 돼요: ' + v);
+    if (!(st.isDirectory() || (st.isFile() && /\.md$/i.test(full) && under.length > 1))) reject('콘텐츠 주제 폴더나 원고만 돼요: ' + v);
     return full;
   }
   if (kind === 'image') {

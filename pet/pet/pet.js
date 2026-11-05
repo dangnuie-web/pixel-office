@@ -19,9 +19,11 @@
   let pose = { mode: 'idle', dir: 'left' }, poseAt = performance.now();
   let view = { left: 0, right: 300 };
   let bubbleTimer = null, lastKey = '';
+  let padW = 140;
 
   window.TP.on('pet:init', (d) => {
     S = d.sprites || {}; winW = d.winW;
+    { const pd = document.getElementById('pad'); padW = Math.round(140 * (d.petScale || 1)); pd.style.width = padW + 'px'; pd.style.height = Math.round(104 * (d.petScale || 1)) + 'px'; }
     if (d.png) {
       const L = d.png.layout, dpr = window.devicePixelRatio || 1;
       P = { L, img: {}, pixelated: !!d.png.pixelated, dpr, ready: 0, total: 0 };
@@ -210,7 +212,7 @@
   }
   function showPad(kind) {
     pad.hidden = !kind; pad.className = kind === 'no' ? 'no' : '';
-    if (kind) pad.style.left = Math.round(toriLeft() + cssW / 2 - 70) + 'px';
+    if (kind) pad.style.left = Math.round(toriLeft() + cssW / 2 - padW / 2) + 'px';
   }
   function hover(kind, n) {
     const key = kind ? kind + n : '';

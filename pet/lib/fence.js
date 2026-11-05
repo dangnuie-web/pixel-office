@@ -4,7 +4,8 @@ const fs = require('fs');
 const M = require('./memo');
 const C = require('./po').load('calCore');
 
-const WRITE_FILES = Object.freeze([M.KINDS.idea.rel, M.KINDS.lecture.rel]);
+const relsOf = (K) => K.rels || [K.rel];
+const WRITE_FILES = Object.freeze([].concat(relsOf(M.KINDS.idea), relsOf(M.KINDS.lecture)));
 const APPT_REL = C.PATH;
 const REF_REL = '40_자산/레퍼런스';
 const IMG_EXT = /\.(png|jpe?g|gif|webp|avif|svg)$/i;
@@ -12,7 +13,7 @@ const NAME_BAD = /[/\\:\0]|^\.|^$/;
 
 function makeFence(officeRoot, opts) {
   const OFFICE = fs.realpathSync(path.resolve(officeRoot));
-  const ALLOW = (opts && opts.lecture === false) ? WRITE_FILES.filter((r) => r !== M.KINDS.lecture.rel) : WRITE_FILES;
+  const ALLOW = (opts && opts.lecture === false) ? WRITE_FILES.filter((r) => !relsOf(M.KINDS.lecture).includes(r)) : WRITE_FILES;
   const inside = (full, dir) => full === dir || full.startsWith(dir + path.sep);
 
   function tableFile(rel) {
@@ -26,14 +27,15 @@ function makeFence(officeRoot, opts) {
   function writeMemo(kind, input, ymd) {
     const K = M.KINDS[kind];
     if (!K) throw new Error('쓰기 허용 안 됨: 종류 ' + kind);
-    const full = tableFile(K.rel);
+    const rel = relsOf(K).find((r) => fs.existsSync(path.join(OFFICE, ...r.split('/')))) || K.rel;
+    const full = tableFile(rel);
     const old = fs.readFileSync(full, 'utf8');
     const r = M.memoInsert(kind, old, input, ymd);
     if (!r.ok) return { ok: false, why: r.why, shape: r.why !== '빈 메모' };
     if (!M.isOneRowInsert(old, r.text, r.row)) return { ok: false, why: '한 줄 넣기가 아닌 변경이라 멈췄어요', shape: true };
     if (fs.readFileSync(full, 'utf8') !== old) return { ok: false, why: '그 사이 파일이 바뀌었어요. 다시 해 주세요', shape: false };
     fs.writeFileSync(full, r.text);
-    return { ok: true, rel: K.rel, line: r.line };
+    return { ok: true, rel, line: r.line };
   }
 
   function apptFile() {

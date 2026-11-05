@@ -3,7 +3,7 @@
   const $ = (id) => document.getElementById(id);
   const KINDS = {
     idea: { to: '아이디어보관함', ph: '떠오른 걸 한 줄로' },
-    lecture: { to: '강의소재.md', ph: '강의에 쓸 소재 한 줄' },
+    lecture: { to: '소재.md', ph: '콘텐츠에 쓸 소재 한 줄' },
     appt: { to: '오피스 달력', ph: '' },
   };
   let ORDER = ['idea', 'lecture', 'appt'];

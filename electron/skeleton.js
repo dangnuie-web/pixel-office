@@ -162,7 +162,7 @@ function files({ officeName, ownerName, staff }) {
     '아래 모양으로 한 줄에 한 명씩 적으면 사무실에 자리가 생겨요.\n' +
     '"- 이름 (영문id): 직업(동물)."  영문id는 영어 소문자와 - 만. 직업은 동물마다 정해져 있어요(앱이 동물로 읽어요).\n' +
     staff.map((s) => '- ' + s.name + ' (' + s.id + '): ' + s.role + '(' + s.animal + ').\n').join('');
-  const todo = '# 할 일\n\n## Today\n\n## Weekly\n\n## 완료\n';
+  const todo = '# 할 일\n\n## Today\n\n## Someday\n\n## 완료\n';
   const ideas = '# 아이디어 보관함\n떠오른 아이디어를 한 줄씩 모아요. 아이디어 칸은 "짧은 제목 — 설명" 모양이면 칠판 포스트잇 제목이 돼요.\n\n| 날짜 | 아이디어 | 종류 | 상태 | 메모 |\n|---|---|---|---|---|\n';
   const helper = staff.find((s) => s.animal !== '다람쥐');
   const roadmap = '# 첫 프로젝트 로드맵\n\n한 줄 목표: ' + officeName + ' 써 보기\n\n## 1단계 — 둘러보기\n\n' +

@@ -39,7 +39,7 @@
       if (notFound(e)) { setText(null); S.exists = false; }
       else { setText(null); S.err = (e && e.message) || String(e); }
     }
-    try { S.projects = (await FS.listDirs(S.handle, GO)).map((n) => n.normalize('NFC')); } catch (e) { S.projects = []; }
+    try { S.projects = (await FS.listProjectDirs(S.handle, GO)).map((n) => FS.projectName(n)); } catch (e) { S.projects = []; }
     S.loaded = true;
   }
 

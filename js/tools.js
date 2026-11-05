@@ -218,7 +218,7 @@
     if (items && !noOther) items.push({ other: true, label: '다른 파일 고르기…', i: -1 });
     if (items && !noOther) UI.pickItems.push(items[items.length - 1]);
     UI.pickSel = Math.min(UI.pickSel, Math.max(0, UI.pickItems.length - 1));
-    const title = { blog: '블로그 초안 고르기', frame: '원고 고르기 · 블로그 틀', lecture: '원고 고르기 · 강의목록 갱신', pixel: '에셋 폴더 고르기', deploy: '프로젝트 고르기 · 배포 전 점검' }[key];
+    const title = { blog: '블로그 초안 고르기', frame: '원고 고르기 · 블로그 틀', lecture: '원고 고르기 · 콘텐츠 목록 갱신', pixel: '에셋 폴더 고르기', deploy: '프로젝트 고르기 · 배포 전 점검' }[key];
     const selItem = UI.pickItems[UI.pickSel];
     const row = (it) => {
       if (it.grp) return '<div class="grp">' + esc(it.grp) + '</div>';
@@ -476,8 +476,8 @@
       footBtns = '<button class="tb-run" data-act="hand-ori" data-key="' + key + '">오리에게 넘길 글 복사</button>' + (sameNext ? '<button class="tb-run ghost" data-act="run" data-key="' + key + '">다시 점검</button>' : '') + '<button class="tb-run ghost" data-act="show-out">출력 보기</button>';
     } else if (key === 'lecture' && s.status === 'ok') {
       list = '<div class="dr-list">' + lectureBody(r) + '</div>';
-      footP = '강의목록.md 고치기는 [강의목록에 넣기]를 눌렀을 때만 해요. 한 줄 넣기만, 지우기는 없어요.';
-      footBtns = (!r.write && !r.exists && r.row && sameNext ? '<button class="tb-run" data-act="lecture-write">강의목록에 넣기</button>' : '') + (sameNext ? '<button class="tb-run ghost" data-act="repick" data-key="lecture">다른 원고 고르기</button>' : '') + '<button class="tb-run ghost" data-act="show-out">출력 보기</button>';
+      footP = '콘텐츠목록.md 고치기는 [콘텐츠 목록에 넣기]를 눌렀을 때만 해요. 한 줄 넣기만, 지우기는 없어요.';
+      footBtns = (!r.write && !r.exists && r.row && sameNext ? '<button class="tb-run" data-act="lecture-write">콘텐츠 목록에 넣기</button>' : '') + (sameNext ? '<button class="tb-run ghost" data-act="repick" data-key="lecture">다른 원고 고르기</button>' : '') + '<button class="tb-run ghost" data-act="show-out">출력 보기</button>';
     } else if (d.server) {
       const busy = s.status === 'run', dis = off() || busy || !T.available(key) ? ' disabled' : '';
       list = '<div class="dr-list roll"><div class="tr-sum"><div><span>주소 localhost:5180/#/admin</span><i class="' + (pfOn ? 'ok' : 'go') + '">' + (busy ? (s.id === 'portfolio-off' ? '끄는 중' : '켜는 중') : pfOn ? '켜짐' : '꺼짐') + '</i></div></div>' + rollHtml(key) + '</div>';
@@ -572,7 +572,7 @@
   const empty = (t) => '<p class="dr-empty">' + esc(t) + '</p>';
   function lectureBody(r) {
     return '<div class="dr-grp"><span><b>원고</b></span><span></span></div><p class="dr-ms">' + esc(r.manuscript) + '</p>' +
-      (r.write ? (r.written ? '<div class="dr-ok">강의목록에 넣었어요: ' + esc(T.toRel(r.written) || r.written) + '</div>' : '') : '') +
+      (r.write ? (r.written ? '<div class="dr-ok">콘텐츠 목록에 넣었어요: ' + esc(T.toRel(r.written) || r.written) + '</div>' : '') : '') +
       '<div class="dr-grp"><span><b>' + (r.exists ? '이미 목록에 있어요' : r.write ? '넣은 줄' : '넣을 줄 (미리보기)') + '</b></span><span></span></div>' +
       (r.row ? '<pre class="dr-rowline">' + esc(r.row) + '</pre>' : empty('넣을 줄이 없어요.')) +
       r.warns.map((w) => '<p class="dr-warn">' + esc(w) + '</p>').join('');

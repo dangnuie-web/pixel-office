@@ -1,8 +1,9 @@
 (function (root) {
   'use strict';
   const PATH = '10_프로젝트/할일.md';
-  const SECTIONS = ['Today', 'Weekly', '완료'];
-  const LEGACY = { '진행': 'Weekly' };
+  const LATER = 'Someday';
+  const SECTIONS = ['Today', LATER, '완료'];
+  const LEGACY = { '진행': LATER, 'weekly': LATER, '언젠간할일': LATER };
   const DONE = '완료';
   const ITEM_RE = /^(\s*)[-*+]\s+\[([ xX]|✅|✔️?|☑️?|✓)\]\s?(.*)$/;
   const COMMENT_RE = /\s*<!--\s*(로드맵|칸)\s*:\s*(.*?)\s*-->\s*$/;
@@ -15,11 +16,12 @@
       SECTIONS.map((s) => '## ' + s + '\n').join('\n');
   }
   const cleanTitle = (title) => String(title || '').replace(/\*\*|__/g, '').trim();
+  const loose = (t) => t.normalize('NFC').replace(/\s+/g, '').toLowerCase();
   function sectionKey(title) {
-    const t = cleanTitle(title);
-    return SECTIONS.find((s) => s.toLowerCase() === t.toLowerCase()) || null;
+    const t = loose(cleanTitle(title));
+    return SECTIONS.find((s) => loose(s) === t) || null;
   }
-  const legacyKey = (title) => LEGACY[cleanTitle(title)] || null;
+  const legacyKey = (title) => LEGACY[loose(cleanTitle(title))] || null;
 
   function parseItem(line, projects) {
     const m = ITEM_RE.exec(line);
@@ -136,7 +138,7 @@
   const touch = (it) => { delete it.raw; return it; };
 
   function addItem(doc, key, fields, index) {
-    if (SECTIONS.indexOf(key) < 0 || key === DONE) throw new Error('할 일은 Today·Weekly 칸에만 추가해요: ' + key);
+    if (SECTIONS.indexOf(key) < 0 || key === DONE) throw new Error('할 일은 Today·Someday 칸에만 추가해요: ' + key);
     const text = String(fields.short != null ? fields.short : fields.text || '').replace(/\s+/g, ' ').trim();
     if (!text) throw new Error('할 일 글이 비어 있어요');
     const it = { id: doc.nextId++, indent: '', done: false, text, project: String(fields.project || '').trim(), key: String(fields.key || '').trim(), from: '', date: '' };
@@ -169,7 +171,7 @@
   function removeItem(doc, it) { return !!detach(doc, it); }
   function todoKeys(doc) { return allItems(doc).map((e) => ({ project: e.project, key: e.key, text: e.text })); }
 
-  const api = { PATH, SECTIONS, DONE, template, sectionKey, parseItem, formatItem, parse, serialize, section, lists, allItems, find, addItem, setDone, moveItem, editItem, removeItem, todoKeys };
+  const api = { PATH, SECTIONS, DONE, LATER, template, sectionKey, parseItem, formatItem, parse, serialize, section, lists, allItems, find, addItem, setDone, moveItem, editItem, removeItem, todoKeys };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.POPlanMd = api;
 })(typeof window !== 'undefined' ? window : globalThis);
